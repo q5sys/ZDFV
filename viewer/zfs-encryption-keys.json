@@ -1,0 +1,5145 @@
+{
+ "meta": {
+  "repo": "https://github.com/openzfs/zfs",
+  "commit": "c913da86156eba3243cc1ef515e98d69887654a7",
+  "version": "2.4.99"
+ },
+ "types": [
+  {
+   "id": "key",
+   "color": "#20C997",
+   "name": "Key material",
+   "desc": "User key material, the 32-byte wrapping key, wrapped or unwrapped master and HMAC keys, salts and IVs used to derive or apply them."
+  },
+  {
+   "id": "abd",
+   "color": "#FF6B6B",
+   "name": "Physical payload",
+   "desc": "abd_t: block bytes as stored (ciphertext, or plaintext with a MAC) or their decrypted form."
+  },
+  {
+   "id": "arc",
+   "color": "#B197FC",
+   "name": "ARC buffer",
+   "desc": "arc_buf_t / arc_buf_hdr_t: cached block handed to a consumer."
+  },
+  {
+   "id": "zio",
+   "color": "#4DABF7",
+   "name": "I/O request",
+   "desc": "zio_t moving through the pipeline."
+  },
+  {
+   "id": "bp",
+   "color": "#F783AC",
+   "name": "Block pointer",
+   "desc": "blkptr_t fields: here the salt, IV and MAC stored in it."
+  },
+  {
+   "id": "tx",
+   "color": "#FFD43B",
+   "name": "Transaction",
+   "desc": "A sync task queued for a txg."
+  },
+  {
+   "id": "ctl",
+   "color": "#868E96",
+   "name": "Control",
+   "desc": "Calls that carry no key or payload: lookups, checks, holds and releases, errors. Draw dashed."
+  }
+ ],
+ "contexts": [
+  {
+   "id": "user",
+   "name": "Userspace (`zfs` command, libzfs, libzfs_core)"
+  },
+  {
+   "id": "syscall",
+   "name": "Kernel, in the thread of the calling process (an ioctl on /dev/zfs, mount(2) or umount(2)) or a helper thread it starts, outside syncing context and outside any dmu_tx"
+  },
+  {
+   "id": "sync",
+   "name": "Syncing context: txg_sync thread, one txg at a time (sync tasks run here)"
+  },
+  {
+   "id": "iss",
+   "name": "zio issue taskq: CPU work such as encryption"
+  },
+  {
+   "id": "int",
+   "name": "zio interrupt taskq: completion processing such as decryption"
+  },
+  {
+   "id": "any",
+   "name": "Runs in whichever context calls it"
+  }
+ ],
+ "groups": [
+  {
+   "id": "user",
+   "title": "Userspace - zfs, libzfs",
+   "color": "#5C5F66",
+   "col": 0,
+   "band": "full",
+   "subcols": 2,
+   "summary": "Commands, key material, wrapping key derivation and the ioctl wrappers. The passphrase never enters the kernel."
+  },
+  {
+   "id": "kentry",
+   "title": "Kernel entry - ioctl, mount",
+   "color": "#2B8A3E",
+   "col": 2,
+   "band": "full",
+   "subcols": 1,
+   "summary": "Key ioctls, crypto parameters, and opening a dataset for decryption."
+  },
+  {
+   "id": "keystore",
+   "title": "Keystore (in memory)",
+   "color": "#0CA678",
+   "col": 3,
+   "band": "full",
+   "subcols": 2,
+   "summary": "The per-pool spa_keystore: loaded wrapping keys, unwrapped master keys, and dataset-to-key mappings."
+  },
+  {
+   "id": "dsl",
+   "title": "Sync tasks + DSL Crypto Key (on disk)",
+   "color": "#E67700",
+   "col": 5,
+   "band": "full",
+   "subcols": 2,
+   "summary": "Creating and rewrapping master keys in syncing context, and the key object they are stored in."
+  },
+  {
+   "id": "pipe",
+   "title": "Shared - DMU, ARC, zio stages",
+   "color": "#1971C2",
+   "col": 7,
+   "band": "full",
+   "subcols": 2,
+   "summary": "The I/O graph's nodes where blocks get encrypted, decrypted and authenticated."
+  },
+  {
+   "id": "crypt",
+   "title": "Block encryption + authentication",
+   "color": "#AE3EC9",
+   "col": 9,
+   "band": "top",
+   "subcols": 2,
+   "summary": "Key lookup, salt and IV, AES-GCM / AES-CCM, HMACs, and the crypto fields of the block pointer."
+  },
+  {
+   "id": "send",
+   "title": "Raw send + receive",
+   "color": "#C2255C",
+   "col": 9,
+   "band": "bottom",
+   "subcols": 2,
+   "summary": "What `zfs send -w` puts in the stream and how a receive stores it."
+  }
+ ],
+ "nodes": [
+  {
+   "id": "admin",
+   "group": "user",
+   "sub": 0,
+   "title": "Administrator",
+   "ctx": "user",
+   "src": "",
+   "fns": [],
+   "role": "The person or script typing the command. Every path in this graph that a command starts begins with a wire from this node; the arrows that come back into a command node are its results, errors and refusals.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "zfs_cmd",
+   "group": "user",
+   "sub": 0,
+   "title": "zfs(8) command",
+   "ctx": "user",
+   "src": "cmd/zfs/zfs_main.c",
+   "fns": [
+    {
+     "name": "zfs_do_create",
+     "ref": {
+      "file": "cmd/zfs/zfs_main.c",
+      "line": 1087,
+      "symbol": "zfs_do_create",
+      "code": "zfs_do_create(int argc, char **argv)"
+     }
+    },
+    {
+     "name": "zfs_do_load_key",
+     "ref": {
+      "file": "cmd/zfs/zfs_main.c",
+      "line": 8800,
+      "symbol": "zfs_do_load_key",
+      "code": "zfs_do_load_key(int argc, char **argv)"
+     }
+    },
+    {
+     "name": "zfs_do_unload_key",
+     "ref": {
+      "file": "cmd/zfs/zfs_main.c",
+      "line": 8807,
+      "symbol": "zfs_do_unload_key",
+      "code": "zfs_do_unload_key(int argc, char **argv)"
+     }
+    },
+    {
+     "name": "load_unload_keys",
+     "ref": {
+      "file": "cmd/zfs/zfs_main.c",
+      "line": 8720,
+      "symbol": "load_unload_keys",
+      "code": "load_unload_keys(int argc, char **argv, boolean_t loadkey)"
+     }
+    },
+    {
+     "name": "load_key_callback",
+     "ref": {
+      "file": "cmd/zfs/zfs_main.c",
+      "line": 8680,
+      "symbol": "load_key_callback",
+      "code": "load_key_callback(zfs_handle_t *zhp, void *data)"
+     }
+    },
+    {
+     "name": "zfs_do_change_key",
+     "ref": {
+      "file": "cmd/zfs/zfs_main.c",
+      "line": 8813,
+      "symbol": "zfs_do_change_key",
+      "code": "zfs_do_change_key(int argc, char **argv)"
+     }
+    },
+    {
+     "name": "zfs_do_send",
+     "ref": {
+      "file": "cmd/zfs/zfs_main.c",
+      "line": 4753,
+      "symbol": "zfs_do_send",
+      "code": "zfs_do_send(int argc, char **argv)"
+     }
+    }
+   ],
+   "role": "The administrator's entry points: `zfs create`, `zfs load-key` and `zfs unload-key` (`-r` and `-a` act only on encryption roots not already in the wanted state; `-n` only verifies the key; `-L` overrides keylocation), `zfs change-key` (`-l` loads the current key first, `-i` inherits the parent's key, `-o` sets keyformat, keylocation or pbkdf2iters) and `zfs send -w`.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "mount_lib",
+   "group": "user",
+   "sub": 0,
+   "title": "libzfs mount / unmount",
+   "ctx": "user",
+   "src": "lib/libzfs/libzfs_mount.c",
+   "fns": [
+    {
+     "name": "zfs_mount_at",
+     "ref": {
+      "file": "lib/libzfs/libzfs_mount.c",
+      "line": 390,
+      "symbol": "zfs_mount_at",
+      "code": "zfs_mount_at(zfs_handle_t *zhp, const char *options, int flags,"
+     }
+    },
+    {
+     "name": "zfs_unmount",
+     "ref": {
+      "file": "lib/libzfs/libzfs_mount.c",
+      "line": 622,
+      "symbol": "zfs_unmount",
+      "code": "zfs_unmount(zfs_handle_t *zhp, const char *mountpoint, int flags)"
+     }
+    },
+    {
+     "name": "share_mount_one",
+     "ref": {
+      "file": "cmd/zfs/zfs_main.c",
+      "line": 7086,
+      "symbol": "share_mount_one",
+      "code": "share_mount_one(zfs_handle_t *zhp, int op, int flags, enum sa_protocol protocol,"
+     }
+    },
+    {
+     "name": "unshare_unmount",
+     "ref": {
+      "file": "cmd/zfs/zfs_main.c",
+      "line": 7794,
+      "symbol": "unshare_unmount",
+      "code": "unshare_unmount(int op, int argc, char **argv)"
+     }
+    }
+   ],
+   "role": "`zfs mount -l` sets MS_CRYPT: if the dataset's keystatus is unavailable, the key of its encryption root is loaded before mount(2). Without `-l` such a mount fails with \"encryption key not loaded\". `zfs unmount -u` also sets MS_CRYPT: after unmounting an encryption root whose key is loaded, it unloads the key.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "libzfs_crypto",
+   "group": "user",
+   "sub": 0,
+   "title": "libzfs key operations",
+   "ctx": "user",
+   "src": "lib/libzfs/libzfs_crypto.c",
+   "fns": [
+    {
+     "name": "zfs_crypto_create",
+     "ref": {
+      "file": "lib/libzfs/libzfs_crypto.c",
+      "line": 987,
+      "symbol": "zfs_crypto_create",
+      "code": "zfs_crypto_create(libzfs_handle_t *hdl, char *parent_name, nvlist_t *props,"
+     }
+    },
+    {
+     "name": "zfs_crypto_load_key",
+     "ref": {
+      "file": "lib/libzfs/libzfs_crypto.c",
+      "line": 1261,
+      "symbol": "zfs_crypto_load_key",
+      "code": "zfs_crypto_load_key(zfs_handle_t *zhp, boolean_t noop,"
+     }
+    },
+    {
+     "name": "zfs_crypto_unload_key",
+     "ref": {
+      "file": "lib/libzfs/libzfs_crypto.c",
+      "line": 1435,
+      "symbol": "zfs_crypto_unload_key",
+      "code": "zfs_crypto_unload_key(zfs_handle_t *zhp)"
+     }
+    },
+    {
+     "name": "zfs_crypto_rewrap",
+     "ref": {
+      "file": "lib/libzfs/libzfs_crypto.c",
+      "line": 1585,
+      "symbol": "zfs_crypto_rewrap",
+      "code": "zfs_crypto_rewrap(zfs_handle_t *zhp, nvlist_t *raw_props, boolean_t inheritkey)"
+     }
+    },
+    {
+     "name": "zfs_crypto_get_encryption_root",
+     "ref": {
+      "file": "lib/libzfs/libzfs_crypto.c",
+      "line": 956,
+      "symbol": "zfs_crypto_get_encryption_root",
+      "code": "zfs_crypto_get_encryption_root(zfs_handle_t *zhp, boolean_t *is_encroot,"
+     }
+    },
+    {
+     "name": "zfs_create",
+     "ref": {
+      "file": "lib/libzfs/libzfs_dataset.c",
+      "line": 3631,
+      "symbol": "zfs_create",
+      "code": "zfs_create(libzfs_handle_t *hdl, const char *path, zfs_type_t type,"
+     }
+    }
+   ],
+   "role": "Policy checks before any ioctl. Create: a dataset given keyformat (keylocation defaults to prompt) becomes a new encryption root; one given neither inherits its encrypted parent's key, even with a different encryption suite. Load and unload work only on an encryption root. change-key refuses clones and needs the current key loaded; `-i` needs an encryption root whose parent is encrypted and has its key loaded.",
+   "tunables": [],
+   "props": [
+    {
+     "name": "encryption",
+     "ref": {
+      "file": "module/zcommon/zfs_prop.c",
+      "line": 565,
+      "symbol": "\"encryption\"",
+      "code": "zprop_register_index(ZFS_PROP_ENCRYPTION, \"encryption\","
+     }
+    },
+    {
+     "name": "encryptionroot",
+     "ref": {
+      "file": "module/zcommon/zfs_prop.c",
+      "line": 613,
+      "symbol": "\"encryptionroot\"",
+      "code": "zprop_register_string(ZFS_PROP_ENCRYPTION_ROOT, \"encryptionroot\", NULL,"
+     }
+    },
+    {
+     "name": "keystatus",
+     "ref": {
+      "file": "module/zcommon/zfs_prop.c",
+      "line": 546,
+      "symbol": "\"keystatus\"",
+      "code": "zprop_register_index(ZFS_PROP_KEYSTATUS, \"keystatus\","
+     }
+    }
+   ]
+  },
+  {
+   "id": "key_material",
+   "group": "user",
+   "sub": 1,
+   "title": "Key material (keylocation)",
+   "ctx": "user",
+   "src": "lib/libzfs/libzfs_crypto.c",
+   "fns": [
+    {
+     "name": "get_key_material",
+     "ref": {
+      "file": "lib/libzfs/libzfs_crypto.c",
+      "line": 671,
+      "symbol": "get_key_material",
+      "code": "get_key_material(libzfs_handle_t *hdl, boolean_t do_verify, boolean_t newkey,"
+     }
+    },
+    {
+     "name": "get_key_interactive",
+     "ref": {
+      "file": "lib/libzfs/libzfs_crypto.c",
+      "line": 355,
+      "symbol": "get_key_interactive",
+      "code": "get_key_interactive(libzfs_handle_t *restrict hdl, const char *fsname,"
+     }
+    },
+    {
+     "name": "get_key_material_file",
+     "ref": {
+      "file": "lib/libzfs/libzfs_crypto.c",
+      "line": 478,
+      "symbol": "get_key_material_file",
+      "code": "get_key_material_file(libzfs_handle_t *hdl, const char *uri,"
+     }
+    },
+    {
+     "name": "get_key_material_https",
+     "ref": {
+      "file": "lib/libzfs/libzfs_crypto.c",
+      "line": 505,
+      "symbol": "get_key_material_https",
+      "code": "get_key_material_https(libzfs_handle_t *hdl, const char *uri,"
+     }
+    },
+    {
+     "name": "validate_key",
+     "ref": {
+      "file": "lib/libzfs/libzfs_crypto.c",
+      "line": 199,
+      "symbol": "validate_key",
+      "code": "validate_key(libzfs_handle_t *hdl, zfs_keyformat_t keyformat,"
+     }
+    }
+   ],
+   "role": "Reads the user's key from keylocation: `prompt` (the terminal, or stdin when it is not a terminal), `file://`, or `http(s)://`. At a terminal a new key is asked for twice; raw keys cannot be typed. Checks the format: raw exactly 32 bytes, hex exactly 64 hex digits, a new passphrase 8 to 512 characters.",
+   "tunables": [],
+   "props": [
+    {
+     "name": "keylocation",
+     "ref": {
+      "file": "module/zcommon/zfs_prop.c",
+      "line": 616,
+      "symbol": "\"keylocation\"",
+      "code": "zprop_register_string(ZFS_PROP_KEYLOCATION, \"keylocation\","
+     }
+    },
+    {
+     "name": "keyformat",
+     "ref": {
+      "file": "module/zcommon/zfs_prop.c",
+      "line": 560,
+      "symbol": "\"keyformat\"",
+      "code": "zprop_register_index(ZFS_PROP_KEYFORMAT, \"keyformat\","
+     }
+    }
+   ]
+  },
+  {
+   "id": "derive_key",
+   "group": "user",
+   "sub": 1,
+   "title": "Wrapping key derivation",
+   "ctx": "user",
+   "src": "lib/libzfs/libzfs_crypto.c",
+   "fns": [
+    {
+     "name": "derive_key",
+     "ref": {
+      "file": "lib/libzfs/libzfs_crypto.c",
+      "line": 761,
+      "symbol": "derive_key",
+      "code": "derive_key(libzfs_handle_t *hdl, zfs_keyformat_t format, uint64_t iters,"
+     }
+    },
+    {
+     "name": "hex_key_to_raw",
+     "ref": {
+      "file": "lib/libzfs/libzfs_crypto.c",
+      "line": 148,
+      "symbol": "hex_key_to_raw",
+      "code": "hex_key_to_raw(char *hex, int hexlen, uint8_t *out)"
+     }
+    },
+    {
+     "name": "populate_create_encryption_params_nvlists",
+     "ref": {
+      "file": "lib/libzfs/libzfs_crypto.c",
+      "line": 835,
+      "symbol": "populate_create_encryption_params_nvlists",
+      "code": "populate_create_encryption_params_nvlists(libzfs_handle_t *hdl,"
+     }
+    }
+   ],
+   "role": "Turns key material into the 32-byte wrapping key, in userspace: the kernel never sees a passphrase. raw: used as is. hex: decoded. passphrase: PBKDF2-HMAC-SHA1 with the dataset's 64-bit pbkdf2salt and pbkdf2iters iterations, deliberately slow. Every new passphrase key gets a new random salt; pbkdf2iters defaults to 350000 and the kernel refuses fewer than 100000.",
+   "tunables": [],
+   "props": [
+    {
+     "name": "pbkdf2iters",
+     "ref": {
+      "file": "module/zcommon/zfs_prop.c",
+      "line": 682,
+      "symbol": "\"pbkdf2iters\"",
+      "code": "zprop_register_number(ZFS_PROP_PBKDF2_ITERS, \"pbkdf2iters\","
+     }
+    },
+    {
+     "name": "pbkdf2salt",
+     "ref": {
+      "file": "module/zcommon/zfs_prop.c",
+      "line": 770,
+      "symbol": "\"pbkdf2salt\"",
+      "code": "zprop_register_hidden(ZFS_PROP_PBKDF2_SALT, \"pbkdf2salt\","
+     }
+    }
+   ]
+  },
+  {
+   "id": "lzc",
+   "group": "user",
+   "sub": 1,
+   "title": "libzfs_core",
+   "ctx": "user",
+   "src": "lib/libzfs_core/libzfs_core.c",
+   "fns": [
+    {
+     "name": "lzc_create",
+     "ref": {
+      "file": "lib/libzfs_core/libzfs_core.c",
+      "line": 296,
+      "symbol": "lzc_create",
+      "code": "lzc_create(const char *fsname, enum lzc_dataset_type type, nvlist_t *props,"
+     }
+    },
+    {
+     "name": "lzc_load_key",
+     "ref": {
+      "file": "lib/libzfs_core/libzfs_core.c",
+      "line": 1837,
+      "symbol": "lzc_load_key",
+      "code": "lzc_load_key(const char *fsname, boolean_t noop, uint8_t *wkeydata,"
+     }
+    },
+    {
+     "name": "lzc_unload_key",
+     "ref": {
+      "file": "lib/libzfs_core/libzfs_core.c",
+      "line": 1861,
+      "symbol": "lzc_unload_key",
+      "code": "lzc_unload_key(const char *fsname)"
+     }
+    },
+    {
+     "name": "lzc_change_key",
+     "ref": {
+      "file": "lib/libzfs_core/libzfs_core.c",
+      "line": 1867,
+      "symbol": "lzc_change_key",
+      "code": "lzc_change_key(const char *fsname, uint64_t crypt_cmd, nvlist_t *props,"
+     }
+    },
+    {
+     "name": "lzc_ioctl",
+     "ref": {
+      "file": "lib/libzfs_core/libzfs_core.c",
+      "line": 212,
+      "symbol": "lzc_ioctl",
+      "code": "lzc_ioctl(zfs_ioc_t ioc, const char *name,"
+     }
+    }
+   ],
+   "role": "Packs the arguments into nvlists for /dev/zfs. The wrapping key travels as the uint8 array `wkeydata` inside the `hidden_args` nvlist, which is stripped before the command is written to pool history.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "ioc_keys",
+   "group": "kentry",
+   "sub": 0,
+   "title": "Create and key ioctls",
+   "ctx": "syscall",
+   "src": "module/zfs/zfs_ioctl.c",
+   "fns": [
+    {
+     "name": "zfs_ioc_create",
+     "ref": {
+      "file": "module/zfs/zfs_ioctl.c",
+      "line": 3973,
+      "symbol": "zfs_ioc_create",
+      "code": "zfs_ioc_create(const char *fsname, nvlist_t *innvl, nvlist_t *outnvl)"
+     }
+    },
+    {
+     "name": "zfs_ioc_load_key",
+     "ref": {
+      "file": "module/zfs/zfs_ioctl.c",
+      "line": 7776,
+      "symbol": "zfs_ioc_load_key",
+      "code": "zfs_ioc_load_key(const char *dsname, nvlist_t *innvl, nvlist_t *outnvl)"
+     }
+    },
+    {
+     "name": "zfs_ioc_unload_key",
+     "ref": {
+      "file": "module/zfs/zfs_ioctl.c",
+      "line": 7818,
+      "symbol": "zfs_ioc_unload_key",
+      "code": "zfs_ioc_unload_key(const char *dsname, nvlist_t *innvl, nvlist_t *outnvl)"
+     }
+    },
+    {
+     "name": "zfs_ioc_change_key",
+     "ref": {
+      "file": "module/zfs/zfs_ioctl.c",
+      "line": 7856,
+      "symbol": "zfs_ioc_change_key",
+      "code": "zfs_ioc_change_key(const char *dsname, nvlist_t *innvl, nvlist_t *outnvl)"
+     }
+    }
+   ],
+   "role": "Kernel entry for ZFS_IOC_CREATE, ZFS_IOC_LOAD_KEY, ZFS_IOC_UNLOAD_KEY and ZFS_IOC_CHANGE_KEY. The key commands refuse snapshot names (containing `@` or `%`).",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "dcp",
+   "group": "kentry",
+   "sub": 0,
+   "title": "dsl_crypto_params",
+   "ctx": "syscall",
+   "src": "module/zfs/dsl_crypt.c",
+   "fns": [
+    {
+     "name": "dsl_crypto_params_create_nvlist",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 133,
+      "symbol": "dsl_crypto_params_create_nvlist",
+      "code": "dsl_crypto_params_create_nvlist(dcp_cmd_t cmd, nvlist_t *props,"
+     }
+    },
+    {
+     "name": "dsl_wrapping_key_create",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 109,
+      "symbol": "dsl_wrapping_key_create",
+      "code": "dsl_wrapping_key_create(uint8_t *wkeydata, zfs_keyformat_t keyformat,"
+     }
+    },
+    {
+     "name": "dsl_crypto_params_free",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 241,
+      "symbol": "dsl_crypto_params_free",
+      "code": "dsl_crypto_params_free(dsl_crypto_params_t *dcp, boolean_t unload)"
+     }
+    }
+   ],
+   "role": "Builds a dsl_crypto_params_t from the ioctl nvlists: the command, the encryption suite (`on` means aes-256-gcm), keylocation, and a dsl_wrapping_key_t holding the 32-byte key with its keyformat, salt and iteration count. encryption, keyformat, pbkdf2salt and pbkdf2iters are removed from the property list: they live in the DSL Crypto Key, not as ordinary dataset properties.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "objset_own",
+   "group": "kentry",
+   "sub": 0,
+   "title": "Dataset opened for decryption",
+   "ctx": "syscall",
+   "src": "module/zfs/dmu_objset.c",
+   "fns": [
+    {
+     "name": "dmu_objset_own",
+     "ref": {
+      "file": "module/zfs/dmu_objset.c",
+      "line": 807,
+      "symbol": "dmu_objset_own",
+      "code": "dmu_objset_own(const char *name, dmu_objset_type_t type,"
+     }
+    },
+    {
+     "name": "dsl_dataset_hold_obj_flags",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 792,
+      "symbol": "dsl_dataset_hold_obj_flags",
+      "code": "dsl_dataset_hold_obj_flags(dsl_pool_t *dp, uint64_t dsobj,"
+     }
+    },
+    {
+     "name": "dsl_dataset_create_key_mapping",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 780,
+      "symbol": "dsl_dataset_create_key_mapping",
+      "code": "dsl_dataset_create_key_mapping(dsl_dataset_t *ds)"
+     }
+    },
+    {
+     "name": "dsl_dataset_rele_flags",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 1023,
+      "symbol": "dsl_dataset_rele_flags",
+      "code": "dsl_dataset_rele_flags(dsl_dataset_t *ds, ds_hold_flags_t flags,"
+     }
+    },
+    {
+     "name": "dsl_dataset_remove_key_mapping",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 1011,
+      "symbol": "dsl_dataset_remove_key_mapping",
+      "code": "dsl_dataset_remove_key_mapping(dsl_dataset_t *ds)"
+     }
+    },
+    {
+     "name": "dmu_objset_disown",
+     "ref": {
+      "file": "module/zfs/dmu_objset.c",
+      "line": 923,
+      "symbol": "dmu_objset_disown",
+      "code": "dmu_objset_disown(objset_t *os, boolean_t decrypt, const void *tag)"
+     }
+    },
+    {
+     "name": "zfsvfs_create",
+     "ref": {
+      "file": "module/os/linux/zfs/zfs_vfsops.c",
+      "line": 642,
+      "symbol": "zfsvfs_create",
+      "code": "zfsvfs_create(const char *osname, boolean_t readonly, zfsvfs_t **zfvp)"
+     }
+    },
+    {
+     "name": "zfs_umount",
+     "ref": {
+      "file": "module/os/linux/zfs/zfs_vfsops.c",
+      "line": 1612,
+      "symbol": "zfs_umount",
+      "code": "zfs_umount(struct super_block *sb)"
+     }
+    }
+   ],
+   "role": "Mounting a file system (`zfsvfs_create()`) or opening a zvol owns the dataset with decrypt set. DS_HOLD_FLAG_DECRYPT creates a key mapping, which fails with EACCES when the key is not loaded. If the objset block is still unauthenticated, its MACs are checked here. Disowning at unmount removes the mapping. Raw send holds datasets without decrypt and needs no key.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "ks_load",
+   "group": "keystore",
+   "sub": 0,
+   "title": "spa_keystore_load_wkey()",
+   "ctx": "syscall",
+   "src": "module/zfs/dsl_crypt.c",
+   "fns": [
+    {
+     "name": "spa_keystore_load_wkey",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 754,
+      "symbol": "spa_keystore_load_wkey",
+      "code": "spa_keystore_load_wkey(const char *dsname, dsl_crypto_params_t *dcp,"
+     }
+    },
+    {
+     "name": "spa_keystore_load_wkey_impl",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 728,
+      "symbol": "spa_keystore_load_wkey_impl",
+      "code": "spa_keystore_load_wkey_impl(spa_t *spa, dsl_wrapping_key_t *wkey)"
+     }
+    }
+   ],
+   "role": "`zfs load-key` in the kernel. The dataset must be its own encryption root (EINVAL otherwise). The offered key is proved by unwrapping this dataset's DSL Crypto Key; its keyformat, salt and iterations are then taken from that key object. With noop (`-n`) it stops there. Otherwise the wrapping key is inserted in the keystore and zvols under the dataset are created. No master key stays in memory.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "ks_unload",
+   "group": "keystore",
+   "sub": 0,
+   "title": "spa_keystore_unload_wkey()",
+   "ctx": "syscall",
+   "src": "module/zfs/dsl_crypt.c",
+   "fns": [
+    {
+     "name": "spa_keystore_unload_wkey",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 903,
+      "symbol": "spa_keystore_unload_wkey",
+      "code": "spa_keystore_unload_wkey(const char *dsname)"
+     }
+    },
+    {
+     "name": "spa_keystore_unload_wkey_impl",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 867,
+      "symbol": "spa_keystore_unload_wkey_impl",
+      "code": "spa_keystore_unload_wkey_impl(spa_t *spa, uint64_t ddobj)"
+     }
+    }
+   ],
+   "role": "`zfs unload-key` in the kernel. Waits for a txg sync so that pending writes drop their key holds, then removes the wrapping key: EACCES if it is not loaded, EBUSY while any DSL Crypto Key still holds it (some dataset under this encryption root is still mounted or open with decryption). The key is zeroed and freed and zvol device nodes under the dataset are removed.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "dck_open",
+   "group": "keystore",
+   "sub": 0,
+   "title": "Master key unwrap",
+   "ctx": "any",
+   "src": "module/zfs/dsl_crypt.c",
+   "fns": [
+    {
+     "name": "dsl_crypto_key_open",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 541,
+      "symbol": "dsl_crypto_key_open",
+      "code": "dsl_crypto_key_open(objset_t *mos, dsl_wrapping_key_t *wkey,"
+     }
+    },
+    {
+     "name": "zio_crypt_key_unwrap",
+     "ref": {
+      "file": "module/zfs/zio_crypt.c",
+      "line": 402,
+      "symbol": "zio_crypt_key_unwrap",
+      "code": "zio_crypt_key_unwrap(crypto_key_t *cwkey, uint64_t crypt, uint64_t version,"
+     }
+    }
+   ],
+   "role": "Reads the DSL Crypto Key object and decrypts the master key and HMAC key with the wrapping key, using the dataset's cipher mode (GCM or CCM) with the key guid, suite and version as authenticated data. A MAC failure means the wrong wrapping key and returns EACCES. On success a fresh random salt is chosen and the current data key is derived from the master key with HKDF-SHA512.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "wkey_tree",
+   "group": "keystore",
+   "sub": 1,
+   "title": "Wrapping key tree (sk_wkeys)",
+   "ctx": "any",
+   "src": "module/zfs/dsl_crypt.c",
+   "fns": [
+    {
+     "name": "spa_keystore_wkey_hold_dd",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 418,
+      "symbol": "spa_keystore_wkey_hold_dd",
+      "code": "spa_keystore_wkey_hold_dd(spa_t *spa, dsl_dir_t *dd, const void *tag,"
+     }
+    },
+    {
+     "name": "dmu_objset_check_wkey_loaded",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 1148,
+      "symbol": "dmu_objset_check_wkey_loaded",
+      "code": "dmu_objset_check_wkey_loaded(dsl_dir_t *dd)"
+     }
+    },
+    {
+     "name": "dsl_dataset_get_keystatus",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 1164,
+      "symbol": "dsl_dataset_get_keystatus",
+      "code": "dsl_dataset_get_keystatus(dsl_dir_t *dd)"
+     }
+    },
+    {
+     "name": "dsl_wrapping_key_free",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 93,
+      "symbol": "dsl_wrapping_key_free",
+      "code": "dsl_wrapping_key_free(dsl_wrapping_key_t *wkey)"
+     }
+    }
+   ],
+   "role": "Loaded wrapping keys, one per encryption root, keyed by the root's dsl_dir object number. A dataset finds its wrapping key by reading the root's object number from its own DSL Crypto Key; this lookup is all that \"inheriting the key\" means. Refcounted: every in-memory master key holds its wrapping key. keystatus is `available` exactly when this lookup succeeds.",
+   "tunables": [],
+   "props": [
+    {
+     "name": "keystatus",
+     "ref": {
+      "file": "module/zcommon/zfs_prop.c",
+      "line": 546,
+      "symbol": "\"keystatus\"",
+      "code": "zprop_register_index(ZFS_PROP_KEYSTATUS, \"keystatus\","
+     }
+    }
+   ]
+  },
+  {
+   "id": "dck_tree",
+   "group": "keystore",
+   "sub": 1,
+   "title": "DSL Crypto Key tree (sk_dsl_keys)",
+   "ctx": "any",
+   "src": "module/zfs/dsl_crypt.c",
+   "fns": [
+    {
+     "name": "spa_keystore_dsl_key_hold_dd",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 657,
+      "symbol": "spa_keystore_dsl_key_hold_dd",
+      "code": "spa_keystore_dsl_key_hold_dd(spa_t *spa, dsl_dir_t *dd, const void *tag,"
+     }
+    },
+    {
+     "name": "spa_keystore_dsl_key_rele",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 715,
+      "symbol": "spa_keystore_dsl_key_rele",
+      "code": "spa_keystore_dsl_key_rele(spa_t *spa, dsl_crypto_key_t *dck, const void *tag)"
+     }
+    },
+    {
+     "name": "dsl_crypto_key_free",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 517,
+      "symbol": "dsl_crypto_key_free",
+      "code": "dsl_crypto_key_free(dsl_crypto_key_t *dck)"
+     }
+    }
+   ],
+   "role": "Unwrapped master keys in memory, one per DSL Crypto Key object and refcounted, so snapshots and clones that share a key object share this entry. A hold that misses the tree unwraps the key from disk with the encryption root's wrapping key. At refcount zero the key is zeroed and freed and its hold on the wrapping key is dropped.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "km_tree",
+   "group": "keystore",
+   "sub": 1,
+   "title": "Key mapping tree (sk_key_mappings)",
+   "ctx": "any",
+   "src": "module/zfs/dsl_crypt.c",
+   "fns": [
+    {
+     "name": "spa_keystore_create_mapping",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 1010,
+      "symbol": "spa_keystore_create_mapping",
+      "code": "spa_keystore_create_mapping(spa_t *spa, dsl_dataset_t *ds, const void *tag,"
+     }
+    },
+    {
+     "name": "spa_keystore_remove_mapping",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 1069,
+      "symbol": "spa_keystore_remove_mapping",
+      "code": "spa_keystore_remove_mapping(spa_t *spa, uint64_t dsobj, const void *tag)"
+     }
+    },
+    {
+     "name": "key_mapping_rele",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 979,
+      "symbol": "key_mapping_rele",
+      "code": "key_mapping_rele(spa_t *spa, dsl_key_mapping_t *km, const void *tag)"
+     }
+    },
+    {
+     "name": "spa_keystore_lookup_key",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 1107,
+      "symbol": "spa_keystore_lookup_key",
+      "code": "spa_keystore_lookup_key(spa_t *spa, uint64_t dsobj, const void *tag,"
+     }
+    }
+   ],
+   "role": "Maps a dataset object number to its master key. Created when a dataset is held with decryption, released when it is released or disowned. Every encrypt, decrypt and MAC operation looks its key up here by the block's objset id; no mapping means EACCES.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "spa_sync",
+   "group": "dsl",
+   "sub": 0,
+   "title": "spa_sync()",
+   "ctx": "sync",
+   "src": "module/zfs/spa.c",
+   "fns": [
+    {
+     "name": "spa_sync",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 11405,
+      "symbol": "spa_sync",
+      "code": "spa_sync(spa_t *spa, uint64_t txg)"
+     }
+    },
+    {
+     "name": "spa_sync_iterate_to_convergence",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 11192,
+      "symbol": "spa_sync_iterate_to_convergence",
+      "code": "spa_sync_iterate_to_convergence(spa_t *spa, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_sync_task",
+     "ref": {
+      "file": "module/zfs/dsl_synctask.c",
+      "line": 126,
+      "symbol": "dsl_sync_task",
+      "code": "dsl_sync_task(const char *pool, dsl_checkfunc_t *checkfunc,"
+     }
+    },
+    {
+     "name": "dsl_sync_task_sync",
+     "ref": {
+      "file": "module/zfs/dsl_synctask.c",
+      "line": 207,
+      "symbol": "dsl_sync_task_sync",
+      "code": "dsl_sync_task_sync(dsl_sync_task_t *dst, dmu_tx_t *tx)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. Creating an encrypted dataset and changing a key are DSL sync tasks: `dsl_sync_task()` runs the check function in the caller, then the caller waits while `spa_sync()` (through `dsl_pool_sync()`) runs the check again and then the sync function, so the change lands atomically in one txg.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "create_crypt",
+   "group": "dsl",
+   "sub": 0,
+   "title": "Encrypted dataset creation",
+   "ctx": "sync",
+   "src": "module/zfs/dsl_crypt.c",
+   "fns": [
+    {
+     "name": "dmu_objset_create_crypt_check",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 1924,
+      "symbol": "dmu_objset_create_crypt_check",
+      "code": "dmu_objset_create_crypt_check(dsl_dir_t *parentdd, dsl_crypto_params_t *dcp,"
+     }
+    },
+    {
+     "name": "dsl_dataset_create_crypt_sync",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 2034,
+      "symbol": "dsl_dataset_create_crypt_sync",
+      "code": "dsl_dataset_create_crypt_sync(uint64_t dsobj, dsl_dir_t *dd,"
+     }
+    },
+    {
+     "name": "dmu_objset_create",
+     "ref": {
+      "file": "module/zfs/dmu_objset.c",
+      "line": 1332,
+      "symbol": "dmu_objset_create",
+      "code": "dmu_objset_create(const char *name, dmu_objset_type_t type, uint64_t flags,"
+     }
+    }
+   ],
+   "role": "Check: without a new key the dataset must inherit from an encrypted parent whose key is loaded (EACCES otherwise); a new key needs a valid keylocation and keyformat, and a passphrase key a salt and at least 100000 iterations. Needs the encryption and bookmark_v2 features. Sync: a clone takes a reference on its origin's key object; any other encrypted dataset gets a new key object of its own, wrapped with its new wrapping key or with its parent's. A new wrapping key is then loaded into the keystore.",
+   "tunables": [],
+   "props": [
+    {
+     "name": "encryption",
+     "ref": {
+      "file": "module/zcommon/zfs_prop.c",
+      "line": 565,
+      "symbol": "\"encryption\"",
+      "code": "zprop_register_index(ZFS_PROP_ENCRYPTION, \"encryption\","
+     }
+    }
+   ]
+  },
+  {
+   "id": "change_key",
+   "group": "dsl",
+   "sub": 0,
+   "title": "spa_keystore_change_key()",
+   "ctx": "sync",
+   "src": "module/zfs/dsl_crypt.c",
+   "fns": [
+    {
+     "name": "spa_keystore_change_key",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 1762,
+      "symbol": "spa_keystore_change_key",
+      "code": "spa_keystore_change_key(const char *dsname, dsl_crypto_params_t *dcp,"
+     }
+    },
+    {
+     "name": "spa_keystore_change_key_check",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 1368,
+      "symbol": "spa_keystore_change_key_check",
+      "code": "spa_keystore_change_key_check(void *arg, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "spa_keystore_change_key_check_impl",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 1262,
+      "symbol": "spa_keystore_change_key_check_impl",
+      "code": "spa_keystore_change_key_check_impl(uint64_t rddobj, uint64_t ddobj,"
+     }
+    },
+    {
+     "name": "spa_keystore_change_key_sync",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 1659,
+      "symbol": "spa_keystore_change_key_sync",
+      "code": "spa_keystore_change_key_sync(void *arg, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "spa_keystore_change_key_sync_impl",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 1561,
+      "symbol": "spa_keystore_change_key_sync_impl",
+      "code": "spa_keystore_change_key_sync_impl(uint64_t rddobj, uint64_t ddobj,"
+     }
+    }
+   ],
+   "role": "`zfs change-key` as a sync task. Check: the dataset is encrypted and not a clone, the suite is not being changed, the current key is loaded, and every key object that will be rewrapped unwraps with its root's key (ZFS_ERR_CRYPTO_KEY_MISMATCH otherwise). Sync: walks the dataset and every descendant whose encryption root is the same (clones are skipped: they share their origin's key object), rewraps each master key under the new wrapping key and records the new encryption root, then replaces the dataset's wrapping key entry. `-i` does the same with the parent's wrapping key and clears keylocation.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "dck_create",
+   "group": "dsl",
+   "sub": 1,
+   "title": "New master key",
+   "ctx": "sync",
+   "src": "module/zfs/dsl_crypt.c",
+   "fns": [
+    {
+     "name": "dsl_crypto_key_create_sync",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 2744,
+      "symbol": "dsl_crypto_key_create_sync",
+      "code": "dsl_crypto_key_create_sync(uint64_t crypt, dsl_wrapping_key_t *wkey,"
+     }
+    },
+    {
+     "name": "zio_crypt_key_init",
+     "ref": {
+      "file": "module/zfs/zio_crypt.c",
+      "line": 219,
+      "symbol": "zio_crypt_key_init",
+      "code": "zio_crypt_key_init(uint64_t crypt, zio_crypt_key_t *key)"
+     }
+    },
+    {
+     "name": "dsl_crypto_key_clone_sync",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 2776,
+      "symbol": "dsl_crypto_key_clone_sync",
+      "code": "dsl_crypto_key_clone_sync(dsl_dir_t *origindd, dmu_tx_t *tx)"
+     }
+    }
+   ],
+   "role": "Creates the DSL Crypto Key ZAP object in the MOS and a random master key (as long as the suite's key: 16, 24 or 32 bytes), a 64-byte HMAC key, a key guid and a first salt. This master key is kept for the life of the dataset and its snapshots. A clone does not get one: it only increments the reference count of its origin's key object.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "dck_sync",
+   "group": "dsl",
+   "sub": 1,
+   "title": "Wrap and store master key",
+   "ctx": "sync",
+   "src": "module/zfs/dsl_crypt.c",
+   "fns": [
+    {
+     "name": "dsl_crypto_key_sync",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 1215,
+      "symbol": "dsl_crypto_key_sync",
+      "code": "dsl_crypto_key_sync(dsl_crypto_key_t *dck, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "zio_crypt_key_wrap",
+     "ref": {
+      "file": "module/zfs/zio_crypt.c",
+      "line": 346,
+      "symbol": "zio_crypt_key_wrap",
+      "code": "zio_crypt_key_wrap(crypto_key_t *cwkey, zio_crypt_key_t *key, uint8_t *iv,"
+     }
+    },
+    {
+     "name": "dsl_crypto_key_sync_impl",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 1187,
+      "symbol": "dsl_crypto_key_sync_impl",
+      "code": "dsl_crypto_key_sync_impl(objset_t *mos, uint64_t dckobj, uint64_t crypt,"
+     }
+    }
+   ],
+   "role": "Encrypts the master key and HMAC key with the wrapping key under a new random 96-bit IV, and writes the result with its 128-bit MAC into the key object together with the suite, the encryption root's object number, the key guid, and the wrapping key's keyformat, pbkdf2salt and pbkdf2iters. This is all that a change-key rewrites.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "dck_zap",
+   "group": "dsl",
+   "sub": 1,
+   "title": "DSL Crypto Key object (MOS)",
+   "ctx": "any",
+   "src": "module/zfs/dsl_crypt.c",
+   "fns": [
+    {
+     "name": "dsl_dir_get_encryption_root_ddobj",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 349,
+      "symbol": "dsl_dir_get_encryption_root_ddobj",
+      "code": "dsl_dir_get_encryption_root_ddobj(dsl_dir_t *dd, uint64_t *rddobj)"
+     }
+    },
+    {
+     "name": "dsl_dataset_crypt_stats",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 2807,
+      "symbol": "dsl_dataset_crypt_stats",
+      "code": "dsl_dataset_crypt_stats(dsl_dataset_t *ds, nvlist_t *nv)"
+     }
+    },
+    {
+     "name": "dsl_crypto_key_destroy_sync",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 2789,
+      "symbol": "dsl_crypto_key_destroy_sync",
+      "code": "dsl_crypto_key_destroy_sync(uint64_t dckobj, dmu_tx_t *tx)"
+     }
+    }
+   ],
+   "role": "One ZAP object per encrypted dataset directory, shared by its snapshots and, through a reference count, by its clones. Lives in the MOS, which is not encrypted. Holds the wrapped master and HMAC keys, wrapping IV and MAC, suite, key guid, version, encryption root object number, and keyformat, pbkdf2salt and pbkdf2iters. `zfs get` reads encryptionroot, keyformat and pbkdf2iters from here. Destroyed with the last dataset that references it.",
+   "tunables": [],
+   "props": [
+    {
+     "name": "encryptionroot",
+     "ref": {
+      "file": "module/zcommon/zfs_prop.c",
+      "line": 613,
+      "symbol": "\"encryptionroot\"",
+      "code": "zprop_register_string(ZFS_PROP_ENCRYPTION_ROOT, \"encryptionroot\", NULL,"
+     }
+    },
+    {
+     "name": "keyformat",
+     "ref": {
+      "file": "module/zcommon/zfs_prop.c",
+      "line": 560,
+      "symbol": "\"keyformat\"",
+      "code": "zprop_register_index(ZFS_PROP_KEYFORMAT, \"keyformat\","
+     }
+    },
+    {
+     "name": "pbkdf2iters",
+     "ref": {
+      "file": "module/zcommon/zfs_prop.c",
+      "line": 682,
+      "symbol": "\"pbkdf2iters\"",
+      "code": "zprop_register_number(ZFS_PROP_PBKDF2_ITERS, \"pbkdf2iters\","
+     }
+    },
+    {
+     "name": "pbkdf2salt",
+     "ref": {
+      "file": "module/zcommon/zfs_prop.c",
+      "line": 770,
+      "symbol": "\"pbkdf2salt\"",
+      "code": "zprop_register_hidden(ZFS_PROP_PBKDF2_SALT, \"pbkdf2salt\","
+     }
+    }
+   ]
+  },
+  {
+   "id": "dbuf_sync",
+   "group": "pipe",
+   "sub": 0,
+   "title": "dbuf_sync_leaf() / dbuf_write()",
+   "ctx": "sync",
+   "src": "module/zfs/dbuf.c",
+   "fns": [
+    {
+     "name": "dbuf_write",
+     "ref": {
+      "file": "module/zfs/dbuf.c",
+      "line": 5450,
+      "symbol": "dbuf_write",
+      "code": "dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dmu_write_policy",
+     "ref": {
+      "file": "module/zfs/dmu.c",
+      "line": 2563,
+      "symbol": "dmu_write_policy",
+      "code": "dmu_write_policy(objset_t *os, dnode_t *dn, int level, int wp, zio_prop_t *zp)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. `dmu_write_policy()` marks every block of an encrypted objset for ENCRYPT. Blocks of encrypted object types keep at most two copies (the third DVA slot holds the salt and IV) and never use nop-write; dedup is allowed only for encrypted types.",
+   "tunables": [],
+   "props": [
+    {
+     "name": "encryption",
+     "ref": {
+      "file": "module/zcommon/zfs_prop.c",
+      "line": 565,
+      "symbol": "\"encryption\"",
+      "code": "zprop_register_index(ZFS_PROP_ENCRYPTION, \"encryption\","
+     }
+    }
+   ]
+  },
+  {
+   "id": "dbuf_read",
+   "group": "pipe",
+   "sub": 0,
+   "title": "dbuf_read()",
+   "ctx": "any",
+   "src": "module/zfs/dbuf.c",
+   "fns": [
+    {
+     "name": "dbuf_read",
+     "ref": {
+      "file": "module/zfs/dbuf.c",
+      "line": 1796,
+      "symbol": "dbuf_read",
+      "code": "dbuf_read(dmu_buf_impl_t *db, zio_t *pio, dmu_flags_t flags)"
+     }
+    },
+    {
+     "name": "dbuf_read_impl",
+     "ref": {
+      "file": "module/zfs/dbuf.c",
+      "line": 1627,
+      "symbol": "dbuf_read_impl",
+      "code": "dbuf_read_impl(dmu_buf_impl_t *db, dnode_t *dn, zio_t *zio, dmu_flags_t flags,"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. A normal read asks the ARC for decrypted data. DMU_READ_NO_DECRYPT (raw receive) reads protected blocks raw instead. A cached buffer that is still encrypted or unauthenticated is passed through `arc_untransform()` before it is returned.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "arc_read",
+   "group": "pipe",
+   "sub": 0,
+   "title": "arc_read()",
+   "ctx": "any",
+   "src": "module/zfs/arc.c",
+   "fns": [
+    {
+     "name": "arc_read",
+     "ref": {
+      "file": "module/zfs/arc.c",
+      "line": 5905,
+      "symbol": "arc_read",
+      "code": "arc_read(zio_t *pio, spa_t *spa, const blkptr_t *bp,"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. Without ZIO_FLAG_RAW_ENCRYPT a miss reads the block through a pipeline that decrypts it, and the header keeps the plaintext. With it (raw send, dnode prefetch) the header keeps the ciphertext. Blocks that are only authenticated are always read without checking the MAC; the check is deferred until a consumer fills a buffer with the key loaded.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "arc_buf",
+   "group": "pipe",
+   "sub": 0,
+   "title": "arc_buf (consumer copy)",
+   "ctx": "any",
+   "src": "module/zfs/arc.c",
+   "fns": [
+    {
+     "name": "arc_buf_alloc_impl",
+     "ref": {
+      "file": "module/zfs/arc.c",
+      "line": 2774,
+      "symbol": "arc_buf_alloc_impl",
+      "code": "arc_buf_alloc_impl(arc_buf_hdr_t *hdr, spa_t *spa, const zbookmark_phys_t *zb,"
+     }
+    },
+    {
+     "name": "arc_buf_fill",
+     "ref": {
+      "file": "module/zfs/arc.c",
+      "line": 2034,
+      "symbol": "arc_buf_fill",
+      "code": "arc_buf_fill(arc_buf_t *buf, spa_t *spa, const zbookmark_phys_t *zb,"
+     }
+    },
+    {
+     "name": "arc_untransform",
+     "ref": {
+      "file": "module/zfs/arc.c",
+      "line": 2229,
+      "symbol": "arc_untransform",
+      "code": "arc_untransform(arc_buf_t *buf, spa_t *spa, const zbookmark_phys_t *zb,"
+     }
+    },
+    {
+     "name": "arc_fill_hdr_crypt",
+     "ref": {
+      "file": "module/zfs/arc.c",
+      "line": 1955,
+      "symbol": "arc_fill_hdr_crypt",
+      "code": "arc_fill_hdr_crypt(arc_buf_hdr_t *hdr, kmutex_t *hash_lock, spa_t *spa,"
+     }
+    },
+    {
+     "name": "arc_hdr_decrypt",
+     "ref": {
+      "file": "module/zfs/arc.c",
+      "line": 1888,
+      "symbol": "arc_hdr_decrypt",
+      "code": "arc_hdr_decrypt(arc_buf_hdr_t *hdr, spa_t *spa, const zbookmark_phys_t *zb)"
+     }
+    },
+    {
+     "name": "arc_hdr_authenticate",
+     "ref": {
+      "file": "module/zfs/arc.c",
+      "line": 1820,
+      "symbol": "arc_hdr_authenticate",
+      "code": "arc_hdr_authenticate(arc_buf_hdr_t *hdr, spa_t *spa, uint64_t dsobj)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. Filling a consumer buffer from a protected header: if only ciphertext is cached, `arc_hdr_decrypt()` decrypts it into the header's plaintext copy for this and later hits; if the block was not yet authenticated, `arc_hdr_authenticate()` checks its MAC when the key is loaded and otherwise leaves it unauthenticated. Decryption and MAC errors reach the consumer as EIO.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "st_encrypt",
+   "group": "pipe",
+   "sub": 1,
+   "title": "ENCRYPT",
+   "ctx": "iss",
+   "src": "module/zfs/zio.c",
+   "fns": [
+    {
+     "name": "zio_encrypt",
+     "ref": {
+      "file": "module/zfs/zio.c",
+      "line": 5567,
+      "symbol": "zio_encrypt",
+      "code": "zio_encrypt(zio_t *zio)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. Runs after WRITE_COMPRESS, only for newly allocated blocks (and rewritten ZIL blocks). Level-0 blocks of encrypted types are encrypted; other object types in an encrypted objset are authenticated with an HMAC and stay plaintext; indirect blocks store a SHA-512 of their children's MACs; the objset block carries two HMACs. A raw write (raw receive) stores the supplied salt, IV and MAC without using a key.",
+   "tunables": [],
+   "props": [
+    {
+     "name": "encryption",
+     "ref": {
+      "file": "module/zcommon/zfs_prop.c",
+      "line": 565,
+      "symbol": "\"encryption\"",
+      "code": "zprop_register_index(ZFS_PROP_ENCRYPTION, \"encryption\","
+     }
+    }
+   ]
+  },
+  {
+   "id": "st_read_bp_init",
+   "group": "pipe",
+   "sub": 1,
+   "title": "READ_BP_INIT",
+   "ctx": "any",
+   "src": "module/zfs/zio.c",
+   "fns": [
+    {
+     "name": "zio_read_bp_init",
+     "ref": {
+      "file": "module/zfs/zio.c",
+      "line": 1865,
+      "symbol": "zio_read_bp_init",
+      "code": "zio_read_bp_init(zio_t *zio)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. For a protected block read without ZIO_FLAG_RAW_ENCRYPT, and for every indirect block of an encrypted objset, pushes `zio_decrypt()` as a transform that runs when the read completes.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "st_done",
+   "group": "pipe",
+   "sub": 1,
+   "title": "DONE",
+   "ctx": "int",
+   "src": "module/zfs/zio.c",
+   "fns": [
+    {
+     "name": "zio_done",
+     "ref": {
+      "file": "module/zfs/zio.c",
+      "line": 6065,
+      "symbol": "zio_done",
+      "code": "zio_done(zio_t *zio)"
+     }
+    },
+    {
+     "name": "zio_pop_transforms",
+     "ref": {
+      "file": "module/zfs/zio.c",
+      "line": 511,
+      "symbol": "zio_pop_transforms",
+      "code": "zio_pop_transforms(zio_t *zio)"
+     }
+    },
+    {
+     "name": "zio_decrypt",
+     "ref": {
+      "file": "module/zfs/zio.c",
+      "line": 562,
+      "symbol": "zio_decrypt",
+      "code": "zio_decrypt(zio_t *zio, abd_t *data, uint64_t size)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. `zio_pop_transforms()` runs `zio_decrypt()`: an indirect block has its child-MAC checksum verified (no key needed), an authenticated block its HMAC, an encrypted block is decrypted. A MAC mismatch becomes EIO with an authentication ereport; a missing key is EACCES.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "spa_crypt",
+   "group": "crypt",
+   "sub": 0,
+   "title": "spa_do_crypt_abd() and MAC helpers",
+   "ctx": "any",
+   "src": "module/zfs/dsl_crypt.c",
+   "fns": [
+    {
+     "name": "spa_do_crypt_abd",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 2983,
+      "symbol": "spa_do_crypt_abd",
+      "code": "spa_do_crypt_abd(boolean_t encrypt, spa_t *spa, const zbookmark_phys_t *zb,"
+     }
+    },
+    {
+     "name": "spa_do_crypt_mac_abd",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 2940,
+      "symbol": "spa_do_crypt_mac_abd",
+      "code": "spa_do_crypt_mac_abd(boolean_t generate, spa_t *spa, uint64_t dsobj, abd_t *abd,"
+     }
+    },
+    {
+     "name": "spa_do_crypt_objset_mac_abd",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 2878,
+      "symbol": "spa_do_crypt_objset_mac_abd",
+      "code": "spa_do_crypt_objset_mac_abd(boolean_t generate, spa_t *spa, uint64_t dsobj,"
+     }
+    }
+   ],
+   "role": "The bridge from the zio and ARC layers to the keystore. Looks up the dataset's master key by objset id, holds it for the call, and runs the operation. When encrypting a normal block it obtains the current salt and a random IV; a dedup block gets salt and IV from an HMAC of its plaintext, so equal blocks encrypt equally; a ZIL block got its salt and IV when its log block was allocated.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "salt_iv",
+   "group": "crypt",
+   "sub": 0,
+   "title": "Salt and IV",
+   "ctx": "any",
+   "src": "module/zfs/zio_crypt.c",
+   "fns": [
+    {
+     "name": "zio_crypt_key_get_salt",
+     "ref": {
+      "file": "module/zfs/zio_crypt.c",
+      "line": 320,
+      "symbol": "zio_crypt_key_get_salt",
+      "code": "zio_crypt_key_get_salt(zio_crypt_key_t *key, uint8_t *salt)"
+     }
+    },
+    {
+     "name": "zio_crypt_key_change_salt",
+     "ref": {
+      "file": "module/zfs/zio_crypt.c",
+      "line": 277,
+      "symbol": "zio_crypt_key_change_salt",
+      "code": "zio_crypt_key_change_salt(zio_crypt_key_t *key)"
+     }
+    },
+    {
+     "name": "zio_crypt_generate_iv",
+     "ref": {
+      "file": "module/zfs/zio_crypt.c",
+      "line": 486,
+      "symbol": "zio_crypt_generate_iv",
+      "code": "zio_crypt_generate_iv(uint8_t *ivbuf)"
+     }
+    },
+    {
+     "name": "zio_crypt_generate_iv_salt_dedup",
+     "ref": {
+      "file": "module/zfs/zio_crypt.c",
+      "line": 520,
+      "symbol": "zio_crypt_generate_iv_salt_dedup",
+      "code": "zio_crypt_generate_iv_salt_dedup(zio_crypt_key_t *key, uint8_t *data,"
+     }
+    }
+   ],
+   "role": "Data keys are per salt, not per block: one 64-bit salt and the key derived from it serve many blocks. Every use is counted; after zfs_key_max_salt_uses blocks (default 400,000,000, which is also the maximum) a new random salt is chosen and a new key derived with HKDF. Every unwrap also starts with a fresh salt. The IV is 96 random bits per block.",
+   "tunables": [
+    {
+     "name": "zfs_key_max_salt_uses",
+     "ref": {
+      "file": "module/zfs/zio_crypt.c",
+      "line": 1677,
+      "symbol": "max_salt_uses",
+      "code": "ZFS_MODULE_PARAM(zfs, zfs_key_,  max_salt_uses, U64, ZMOD_RW,"
+     }
+    }
+   ],
+   "props": []
+  },
+  {
+   "id": "aead",
+   "group": "crypt",
+   "sub": 1,
+   "title": "AES-GCM / AES-CCM",
+   "ctx": "any",
+   "src": "module/zfs/zio_crypt.c",
+   "fns": [
+    {
+     "name": "zio_do_crypt_data",
+     "ref": {
+      "file": "module/zfs/zio_crypt.c",
+      "line": 1512,
+      "symbol": "zio_do_crypt_data",
+      "code": "zio_do_crypt_data(boolean_t encrypt, zio_crypt_key_t *key,"
+     }
+    },
+    {
+     "name": "zio_crypt_init_uios",
+     "ref": {
+      "file": "module/zfs/zio_crypt.c",
+      "line": 1472,
+      "symbol": "zio_crypt_init_uios",
+      "code": "zio_crypt_init_uios(boolean_t encrypt, uint64_t version, dmu_object_type_t ot,"
+     }
+    }
+   ],
+   "role": "Picks the data key for the block's salt: the cached current key if the salt is current, otherwise `hkdf_sha512()` of the master key and that salt. Encrypts or decrypts with AES-GCM or AES-CCM (on QAT hardware when available) and produces or checks a 128-bit MAC. In dnode blocks only the bonus buffers are encrypted; in ZIL blocks the parts needed to claim the log stay plaintext and are covered as authenticated data.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "mac",
+   "group": "crypt",
+   "sub": 1,
+   "title": "HMACs and MAC checksums",
+   "ctx": "any",
+   "src": "module/zfs/zio_crypt.c",
+   "fns": [
+    {
+     "name": "zio_crypt_do_hmac",
+     "ref": {
+      "file": "module/zfs/zio_crypt.c",
+      "line": 503,
+      "symbol": "zio_crypt_do_hmac",
+      "code": "zio_crypt_do_hmac(zio_crypt_key_t *key, uint8_t *data, uint_t datalen,"
+     }
+    },
+    {
+     "name": "zio_crypt_do_objset_hmacs",
+     "ref": {
+      "file": "module/zfs/zio_crypt.c",
+      "line": 904,
+      "symbol": "zio_crypt_do_objset_hmacs",
+      "code": "zio_crypt_do_objset_hmacs(zio_crypt_key_t *key, void *data, uint_t datalen,"
+     }
+    },
+    {
+     "name": "zio_crypt_do_indirect_mac_checksum_abd",
+     "ref": {
+      "file": "module/zfs/zio_crypt.c",
+      "line": 1101,
+      "symbol": "zio_crypt_do_indirect_mac_checksum_abd",
+      "code": "zio_crypt_do_indirect_mac_checksum_abd(boolean_t generate, abd_t *abd,"
+     }
+    }
+   ],
+   "role": "Authentication without encryption. Unencrypted object types: HMAC-SHA512 with the dataset's HMAC key, truncated to 128 bits. Objset block: a portable MAC (root of the MAC tree in the meta-dnode) and a local MAC (user accounting), 256 bits each, kept inside the block. Indirect blocks: a SHA-512 of their children's MACs, which needs no key, so a raw send can carry the tree without the master key.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "bp_crypt",
+   "group": "crypt",
+   "sub": 1,
+   "title": "Crypto fields in the block pointer",
+   "ctx": "any",
+   "src": "module/zfs/zio_crypt.c",
+   "fns": [
+    {
+     "name": "zio_crypt_encode_params_bp",
+     "ref": {
+      "file": "module/zfs/zio_crypt.c",
+      "line": 546,
+      "symbol": "zio_crypt_encode_params_bp",
+      "code": "zio_crypt_encode_params_bp(blkptr_t *bp, uint8_t *salt, uint8_t *iv)"
+     }
+    },
+    {
+     "name": "zio_crypt_decode_params_bp",
+     "ref": {
+      "file": "module/zfs/zio_crypt.c",
+      "line": 571,
+      "symbol": "zio_crypt_decode_params_bp",
+      "code": "zio_crypt_decode_params_bp(const blkptr_t *bp, uint8_t *salt, uint8_t *iv)"
+     }
+    },
+    {
+     "name": "zio_crypt_encode_mac_bp",
+     "ref": {
+      "file": "module/zfs/zio_crypt.c",
+      "line": 604,
+      "symbol": "zio_crypt_encode_mac_bp",
+      "code": "zio_crypt_encode_mac_bp(blkptr_t *bp, uint8_t *mac)"
+     }
+    },
+    {
+     "name": "zio_crypt_decode_mac_bp",
+     "ref": {
+      "file": "module/zfs/zio_crypt.c",
+      "line": 625,
+      "symbol": "zio_crypt_decode_mac_bp",
+      "code": "zio_crypt_decode_mac_bp(const blkptr_t *bp, uint8_t *mac)"
+     }
+    }
+   ],
+   "role": "Where per-block crypto state lives: the 64-bit salt in the first word of DVA[2], the 96-bit IV in the second word of DVA[2] plus the upper 32 bits of blk_fill, and the 128-bit MAC in the second half of blk_cksum; the first half keeps a truncated checksum of the stored bytes, which needs no key. The objset block keeps its MACs inside the block and a ZIL block in its log chain header.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "raw_send",
+   "group": "send",
+   "sub": 0,
+   "title": "Raw send (zfs send -w)",
+   "ctx": "syscall",
+   "src": "module/zfs/dmu_send.c",
+   "fns": [
+    {
+     "name": "dmu_send",
+     "ref": {
+      "file": "module/zfs/dmu_send.c",
+      "line": 2836,
+      "symbol": "dmu_send",
+      "code": "dmu_send(const char *tosnap, const char *fromsnap, boolean_t embedok,"
+     }
+    },
+    {
+     "name": "dmu_send_impl",
+     "ref": {
+      "file": "module/zfs/dmu_send.c",
+      "line": 2449,
+      "symbol": "dmu_send_impl",
+      "code": "dmu_send_impl(struct dmu_send_params *dspp)"
+     }
+    },
+    {
+     "name": "issue_data_read",
+     "ref": {
+      "file": "module/zfs/dmu_send.c",
+      "line": 1623,
+      "symbol": "issue_data_read",
+      "code": "issue_data_read(struct send_reader_thread_arg *srta, struct send_range *range)"
+     }
+    },
+    {
+     "name": "dmu_dump_write",
+     "ref": {
+      "file": "module/zfs/dmu_send.c",
+      "line": 445,
+      "symbol": "dmu_dump_write",
+      "code": "dmu_dump_write(dmu_send_cookie_t *dscp, dmu_object_type_t type, uint64_t object,"
+     }
+    },
+    {
+     "name": "dsl_crypto_populate_key_nvlist",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 2589,
+      "symbol": "dsl_crypto_populate_key_nvlist",
+      "code": "dsl_crypto_populate_key_nvlist(objset_t *os, uint64_t from_ivset_guid,"
+     }
+    }
+   ],
+   "role": "Sends blocks exactly as stored, so no key needs to be loaded and the stream stays encrypted. The DRR_BEGIN payload carries `crypt_keydata`: the master and HMAC keys still wrapped, with their IV and MAC, suite, key guid and version, the encryption root's keyformat, pbkdf2salt and pbkdf2iters, the portable objset MAC, the meta-dnode layout and IVset guids. Each DRR_WRITE carries its block's salt, IV and MAC. Stream details are in the send/receive graph.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "raw_recv",
+   "group": "send",
+   "sub": 1,
+   "title": "Raw receive",
+   "ctx": "syscall",
+   "src": "module/zfs/dmu_recv.c",
+   "fns": [
+    {
+     "name": "dmu_recv_stream",
+     "ref": {
+      "file": "module/zfs/dmu_recv.c",
+      "line": 5210,
+      "symbol": "dmu_recv_stream",
+      "code": "dmu_recv_stream(dmu_recv_cookie_t *drc, offset_t *voffp)"
+     }
+    },
+    {
+     "name": "dsl_crypto_recv_raw",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 2573,
+      "symbol": "dsl_crypto_recv_raw",
+      "code": "dsl_crypto_recv_raw(const char *poolname, uint64_t dsobj, uint64_t fromobj,"
+     }
+    },
+    {
+     "name": "dsl_crypto_recv_raw_key_sync",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 2394,
+      "symbol": "dsl_crypto_recv_raw_key_sync",
+      "code": "dsl_crypto_recv_raw_key_sync(dsl_dataset_t *ds, nvlist_t *nvl, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "flush_write_batch_impl",
+     "ref": {
+      "file": "module/zfs/dmu_recv.c",
+      "line": 3768,
+      "symbol": "flush_write_batch_impl",
+      "code": "flush_write_batch_impl(struct receive_writer_arg *rwa)"
+     }
+    }
+   ],
+   "role": "A full raw stream creates the dataset without a key, then a sync task writes a key object holding the received wrapped keys unchanged; the dataset becomes its own encryption root with keylocation=prompt and keystatus unavailable, and loads with the sender's key. Blocks are written raw with the stream's salt, IV and MAC. On an incremental receive into a dataset whose encryption root is another dataset, the key object is only rewritten if that root's keyformat, salt and iterations match the stream's.",
+   "tunables": [
+    {
+     "name": "zfs_disable_ivset_guid_check",
+     "ref": {
+      "file": "module/zfs/dsl_crypt.c",
+      "line": 3078,
+      "symbol": "disable_ivset_guid_check",
+      "code": "ZFS_MODULE_PARAM(zfs, zfs_, disable_ivset_guid_check, INT, ZMOD_RW,"
+     }
+    }
+   ],
+   "props": []
+  }
+ ],
+ "wires": [
+  {
+   "id": "E001",
+   "from": "zfs_cmd",
+   "to": "libzfs_crypto",
+   "type": "ctl",
+   "label": "zfs create: zfs_do_create() -> zfs_create() -> zfs_crypto_create()",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 1348,
+     "symbol": "zfs_create",
+     "code": "if (zfs_create(g_zfs, argv[0], type, props) != 0)"
+    },
+    {
+     "file": "lib/libzfs/libzfs_dataset.c",
+     "line": 3748,
+     "symbol": "zfs_crypto_create",
+     "code": "if (zfs_crypto_create(hdl, parent, props, NULL, B_TRUE,"
+    }
+   ]
+  },
+  {
+   "id": "E002",
+   "from": "zfs_cmd",
+   "to": "libzfs_crypto",
+   "type": "ctl",
+   "label": "zfs load-key / unload-key: load_unload_keys() -> load_key_callback() -> zfs_crypto_load_key() or zfs_crypto_unload_key(); with -r or -a only encryption roots",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 8783,
+     "symbol": "load_key_callback",
+     "code": "load_key_callback, &cb);"
+    },
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 8707,
+     "symbol": "zfs_crypto_load_key",
+     "code": "ret = zfs_crypto_load_key(zhp, cb->cb_noop, cb->cb_keylocation);"
+    },
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 8709,
+     "symbol": "zfs_crypto_unload_key",
+     "code": "ret = zfs_crypto_unload_key(zhp);"
+    }
+   ]
+  },
+  {
+   "id": "E003",
+   "from": "zfs_cmd",
+   "to": "libzfs_crypto",
+   "type": "ctl",
+   "label": "zfs change-key: zfs_do_change_key() -> zfs_crypto_rewrap()",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 8875,
+     "symbol": "zfs_crypto_rewrap",
+     "code": "ret = zfs_crypto_rewrap(zhp, props, inheritkey);"
+    }
+   ]
+  },
+  {
+   "id": "E004",
+   "from": "zfs_cmd",
+   "to": "mount_lib",
+   "type": "ctl",
+   "label": "zfs mount / zfs unmount: zfs_mount() -> zfs_mount_at(), or zfs_unmount(); -l and -u set MS_CRYPT",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 7307,
+     "symbol": "zfs_mount",
+     "code": "if (zfs_mount(zhp, options, flags) != 0)"
+    },
+    {
+     "file": "lib/libzfs/libzfs_mount.c",
+     "line": 383,
+     "symbol": "zfs_mount_at",
+     "code": "return (zfs_mount_at(zhp, options, flags, mountpoint));"
+    },
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 7962,
+     "symbol": "zfs_unmount",
+     "code": "if (zfs_unmount(node->un_zhp,"
+    },
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 7435,
+     "symbol": "MS_CRYPT",
+     "code": "flags |= MS_CRYPT;"
+    },
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 7814,
+     "symbol": "MS_CRYPT",
+     "code": "flags |= MS_CRYPT;"
+    }
+   ]
+  },
+  {
+   "id": "E005",
+   "from": "mount_lib",
+   "to": "libzfs_crypto",
+   "type": "ctl",
+   "label": "MS_CRYPT and keystatus unavailable: zfs_crypto_load_key() on the encryption root before mounting",
+   "refs": [
+    {
+     "file": "lib/libzfs/libzfs_mount.c",
+     "line": 456,
+     "symbol": "MS_CRYPT",
+     "code": "if (flags & MS_CRYPT) {"
+    },
+    {
+     "file": "lib/libzfs/libzfs_mount.c",
+     "line": 473,
+     "symbol": "zfs_crypto_load_key",
+     "code": "rc = zfs_crypto_load_key(encroot_hp,"
+    }
+   ]
+  },
+  {
+   "id": "E006",
+   "from": "mount_lib",
+   "to": "libzfs_crypto",
+   "type": "ctl",
+   "label": "MS_CRYPT after unmounting an encryption root whose key is loaded: zfs_crypto_unload_key()",
+   "refs": [
+    {
+     "file": "lib/libzfs/libzfs_mount.c",
+     "line": 669,
+     "symbol": "MS_CRYPT",
+     "code": "if ((flags & MS_CRYPT) != 0 &&"
+    },
+    {
+     "file": "lib/libzfs/libzfs_mount.c",
+     "line": 681,
+     "symbol": "zfs_crypto_unload_key",
+     "code": "zfs_crypto_unload_key(zhp) != 0) {"
+    }
+   ]
+  },
+  {
+   "id": "E007",
+   "from": "libzfs_crypto",
+   "to": "key_material",
+   "type": "ctl",
+   "label": "new key: populate_create_encryption_params_nvlists() -> get_key_material(), asking twice at a terminal",
+   "refs": [
+    {
+     "file": "lib/libzfs/libzfs_crypto.c",
+     "line": 1133,
+     "symbol": "populate_create_encryption_params_nvlists",
+     "code": "ret = populate_create_encryption_params_nvlists(hdl, NULL,"
+    },
+    {
+     "file": "lib/libzfs/libzfs_crypto.c",
+     "line": 1717,
+     "symbol": "populate_create_encryption_params_nvlists",
+     "code": "ret = populate_create_encryption_params_nvlists(zhp->zfs_hdl,"
+    },
+    {
+     "file": "lib/libzfs/libzfs_crypto.c",
+     "line": 848,
+     "symbol": "get_key_material",
+     "code": "ret = get_key_material(hdl, B_TRUE, newkey, keyformat, keylocation,"
+    }
+   ]
+  },
+  {
+   "id": "E008",
+   "from": "libzfs_crypto",
+   "to": "key_material",
+   "type": "ctl",
+   "label": "zfs_crypto_load_key(): pbkdf2salt and pbkdf2iters from the dataset's properties, then get_key_material() from keylocation (or -L)",
+   "refs": [
+    {
+     "file": "lib/libzfs/libzfs_crypto.c",
+     "line": 1345,
+     "symbol": "ZFS_PROP_PBKDF2_SALT",
+     "code": "salt = zfs_prop_get_int(zhp, ZFS_PROP_PBKDF2_SALT);"
+    },
+    {
+     "file": "lib/libzfs/libzfs_crypto.c",
+     "line": 1354,
+     "symbol": "get_key_material",
+     "code": "ret = get_key_material(zhp->zfs_hdl, B_FALSE, B_FALSE, keyformat,"
+    }
+   ]
+  },
+  {
+   "id": "E009",
+   "from": "key_material",
+   "to": "derive_key",
+   "type": "key",
+   "label": "key material checked by validate_key(), then derive_key()",
+   "refs": [
+    {
+     "file": "lib/libzfs/libzfs_crypto.c",
+     "line": 735,
+     "symbol": "validate_key",
+     "code": "if ((ret = validate_key(hdl, keyformat, (const char *)km, kmlen,"
+    },
+    {
+     "file": "lib/libzfs/libzfs_crypto.c",
+     "line": 904,
+     "symbol": "derive_key",
+     "code": "ret = derive_key(hdl, keyformat, iters, key_material, salt, &key_data);"
+    },
+    {
+     "file": "lib/libzfs/libzfs_crypto.c",
+     "line": 1361,
+     "symbol": "derive_key",
+     "code": "ret = derive_key(zhp->zfs_hdl, keyformat, iters, key_material, salt,"
+    }
+   ]
+  },
+  {
+   "id": "E010",
+   "from": "derive_key",
+   "to": "lzc",
+   "type": "key",
+   "label": "32-byte wrapping key; a new passphrase key also gets a new random pbkdf2salt and pbkdf2iters (default 350000) in the properties; passed to lzc_create(), lzc_load_key() or lzc_change_key()",
+   "refs": [
+    {
+     "file": "lib/libzfs/libzfs_crypto.c",
+     "line": 856,
+     "symbol": "pkcs11_get_urandom",
+     "code": "ret = pkcs11_get_urandom((uint8_t *)&salt, sizeof (uint64_t));"
+    },
+    {
+     "file": "lib/libzfs/libzfs_crypto.c",
+     "line": 880,
+     "symbol": "DEFAULT_PBKDF2_ITERATIONS",
+     "code": "iters = DEFAULT_PBKDF2_ITERATIONS;"
+    },
+    {
+     "file": "lib/libzfs/libzfs_dataset.c",
+     "line": 3755,
+     "symbol": "lzc_create",
+     "code": "ret = lzc_create(path, ost, props, wkeydata, wkeylen);"
+    },
+    {
+     "file": "lib/libzfs/libzfs_crypto.c",
+     "line": 1369,
+     "symbol": "lzc_load_key",
+     "code": "ret = lzc_load_key(zhp->zfs_name, noop, key_data, WRAPPING_KEY_LEN);"
+    },
+    {
+     "file": "lib/libzfs/libzfs_crypto.c",
+     "line": 1779,
+     "symbol": "lzc_change_key",
+     "code": "ret = lzc_change_key(zhp->zfs_name, cmd, props, wkeydata, wkeylen);"
+    }
+   ]
+  },
+  {
+   "id": "E011",
+   "from": "libzfs_crypto",
+   "to": "lzc",
+   "type": "ctl",
+   "label": "no key material: lzc_create() for an inheriting child, lzc_unload_key(), or lzc_change_key() with DCP_CMD_INHERIT",
+   "refs": [
+    {
+     "file": "lib/libzfs/libzfs_dataset.c",
+     "line": 3755,
+     "symbol": "lzc_create",
+     "code": "ret = lzc_create(path, ost, props, wkeydata, wkeylen);"
+    },
+    {
+     "file": "lib/libzfs/libzfs_crypto.c",
+     "line": 1491,
+     "symbol": "lzc_unload_key",
+     "code": "ret = lzc_unload_key(zhp->zfs_name);"
+    },
+    {
+     "file": "lib/libzfs/libzfs_crypto.c",
+     "line": 1593,
+     "symbol": "DCP_CMD_INHERIT",
+     "code": "dcp_cmd_t cmd = (inheritkey) ? DCP_CMD_INHERIT : DCP_CMD_NEW_KEY;"
+    },
+    {
+     "file": "lib/libzfs/libzfs_crypto.c",
+     "line": 1779,
+     "symbol": "lzc_change_key",
+     "code": "ret = lzc_change_key(zhp->zfs_name, cmd, props, wkeydata, wkeylen);"
+    }
+   ]
+  },
+  {
+   "id": "E012",
+   "from": "lzc",
+   "to": "ioc_keys",
+   "type": "key",
+   "label": "ioctl ZFS_IOC_CREATE, ZFS_IOC_LOAD_KEY, ZFS_IOC_UNLOAD_KEY or ZFS_IOC_CHANGE_KEY; the wrapping key rides in hidden_args, which pool history never records",
+   "refs": [
+    {
+     "file": "lib/libzfs_core/libzfs_core.c",
+     "line": 314,
+     "symbol": "ZFS_IOC_CREATE",
+     "code": "error = lzc_ioctl(ZFS_IOC_CREATE, fsname, args, NULL);"
+    },
+    {
+     "file": "lib/libzfs_core/libzfs_core.c",
+     "line": 1853,
+     "symbol": "ZFS_IOC_LOAD_KEY",
+     "code": "error = lzc_ioctl(ZFS_IOC_LOAD_KEY, fsname, ioc_args, NULL);"
+    },
+    {
+     "file": "lib/libzfs_core/libzfs_core.c",
+     "line": 1863,
+     "symbol": "ZFS_IOC_UNLOAD_KEY",
+     "code": "return (lzc_ioctl(ZFS_IOC_UNLOAD_KEY, fsname, NULL, NULL));"
+    },
+    {
+     "file": "lib/libzfs_core/libzfs_core.c",
+     "line": 1886,
+     "symbol": "ZFS_IOC_CHANGE_KEY",
+     "code": "error = lzc_ioctl(ZFS_IOC_CHANGE_KEY, fsname, ioc_args, NULL);"
+    },
+    {
+     "file": "module/zfs/spa_history.c",
+     "line": 372,
+     "symbol": "ZPOOL_HIDDEN_ARGS",
+     "code": "(void) nvlist_remove_all(in_nvl, ZPOOL_HIDDEN_ARGS);"
+    }
+   ]
+  },
+  {
+   "id": "E013",
+   "from": "ioc_keys",
+   "to": "dcp",
+   "type": "key",
+   "label": "dsl_crypto_params_create_nvlist(): command, suite, keylocation and, if one was sent, the wrapping key (dsl_wrapping_key_create())",
+   "refs": [
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 4052,
+     "symbol": "dsl_crypto_params_create_nvlist",
+     "code": "error = dsl_crypto_params_create_nvlist(DCP_CMD_NONE, nvprops,"
+    },
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 7791,
+     "symbol": "dsl_crypto_params_create_nvlist",
+     "code": "ret = dsl_crypto_params_create_nvlist(DCP_CMD_NONE, NULL,"
+    },
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 7873,
+     "symbol": "dsl_crypto_params_create_nvlist",
+     "code": "ret = dsl_crypto_params_create_nvlist(cmd, props, hidden_args, &dcp);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 215,
+     "symbol": "dsl_wrapping_key_create",
+     "code": "dsl_wrapping_key_create(wkeydata, keyformat, salt,"
+    }
+   ]
+  },
+  {
+   "id": "E014",
+   "from": "dcp",
+   "to": "ks_load",
+   "type": "key",
+   "label": "spa_keystore_load_wkey(dsname, dcp, noop)",
+   "refs": [
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 7796,
+     "symbol": "spa_keystore_load_wkey",
+     "code": "ret = spa_keystore_load_wkey(dsname, dcp, noop);"
+    }
+   ]
+  },
+  {
+   "id": "E015",
+   "from": "ks_load",
+   "to": "dck_open",
+   "type": "ctl",
+   "label": "must be the encryption root; dsl_crypto_key_open() tries to unwrap this dataset's key object with the offered key",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 791,
+     "symbol": "dsl_dir_get_encryption_root_ddobj",
+     "code": "ret = dsl_dir_get_encryption_root_ddobj(dd, &rddobj);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 801,
+     "symbol": "dsl_crypto_key_open",
+     "code": "ret = dsl_crypto_key_open(dp->dp_meta_objset, wkey,"
+    }
+   ]
+  },
+  {
+   "id": "E016",
+   "from": "dck_zap",
+   "to": "dck_open",
+   "type": "key",
+   "label": "zap_lookup(): suite, key guid, wrapped master and HMAC keys, wrapping IV and MAC, version",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 571,
+     "symbol": "DSL_CRYPTO_KEY_MASTER_KEY",
+     "code": "ret = zap_lookup(mos, dckobj, DSL_CRYPTO_KEY_MASTER_KEY, 1,"
+    }
+   ]
+  },
+  {
+   "id": "E017",
+   "from": "dck_open",
+   "to": "ks_load",
+   "type": "ctl",
+   "label": "zio_crypt_key_unwrap() succeeded, or EACCES for a wrong key (libzfs then re-prompts at a terminal, up to three attempts)",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 598,
+     "symbol": "zio_crypt_key_unwrap",
+     "code": "ret = zio_crypt_key_unwrap(&wkey->wk_key, crypt, version, guid,"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 601,
+     "symbol": "EACCES",
+     "code": "ret = SET_ERROR(EACCES);"
+    },
+    {
+     "file": "lib/libzfs/libzfs_crypto.c",
+     "line": 1429,
+     "symbol": "try_again",
+     "code": "goto try_again;"
+    }
+   ]
+  },
+  {
+   "id": "E018",
+   "from": "ks_load",
+   "to": "wkey_tree",
+   "type": "key",
+   "label": "spa_keystore_load_wkey_impl(): wrapping key inserted under the root's dsl_dir object (EEXIST if already loaded); zvol_create_minors()",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 842,
+     "symbol": "spa_keystore_load_wkey_impl",
+     "code": "ret = spa_keystore_load_wkey_impl(dp->dp_spa, wkey);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 739,
+     "symbol": "EEXIST",
+     "code": "ret = SET_ERROR(EEXIST);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 742,
+     "symbol": "avl_insert",
+     "code": "avl_insert(&spa->spa_keystore.sk_wkeys, wkey, where);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 851,
+     "symbol": "zvol_create_minors",
+     "code": "zvol_create_minors(dsname);"
+    }
+   ]
+  },
+  {
+   "id": "E019",
+   "from": "ioc_keys",
+   "to": "ks_unload",
+   "type": "ctl",
+   "label": "spa_keystore_unload_wkey(dsname)",
+   "refs": [
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 7828,
+     "symbol": "spa_keystore_unload_wkey",
+     "code": "ret = spa_keystore_unload_wkey(dsname);"
+    }
+   ]
+  },
+  {
+   "id": "E020",
+   "from": "ks_unload",
+   "to": "wkey_tree",
+   "type": "ctl",
+   "label": "txg_wait_synced(), then spa_keystore_unload_wkey_impl(): EACCES if not loaded, EBUSY while the refcount is not zero, otherwise removed and zeroed by dsl_wrapping_key_free(); zvol_remove_minors()",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 919,
+     "symbol": "txg_wait_synced",
+     "code": "txg_wait_synced(spa->spa_dsl_pool, 0);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 940,
+     "symbol": "spa_keystore_unload_wkey_impl",
+     "code": "ret = spa_keystore_unload_wkey_impl(dp->dp_spa, dd->dd_object);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 882,
+     "symbol": "EACCES",
+     "code": "ret = SET_ERROR(EACCES);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 885,
+     "symbol": "EBUSY",
+     "code": "ret = SET_ERROR(EBUSY);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 893,
+     "symbol": "dsl_wrapping_key_free",
+     "code": "dsl_wrapping_key_free(found_wkey);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 948,
+     "symbol": "zvol_remove_minors",
+     "code": "zvol_remove_minors(dp->dp_spa, dsname, B_TRUE);"
+    }
+   ]
+  },
+  {
+   "id": "E021",
+   "from": "dcp",
+   "to": "spa_sync",
+   "type": "tx",
+   "label": "dmu_objset_create() or spa_keystore_change_key() calls dsl_sync_task(): the check runs once in the calling thread, then the caller waits for the txg that runs the task",
+   "refs": [
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 4059,
+     "symbol": "dmu_objset_create",
+     "code": "error = dmu_objset_create(fsname, type,"
+    },
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 7883,
+     "symbol": "spa_keystore_change_key",
+     "code": "ret = spa_keystore_change_key(dsname, dcp, props);"
+    },
+    {
+     "file": "module/zfs/dmu_objset.c",
+     "line": 1359,
+     "symbol": "dmu_objset_create_check",
+     "code": "dmu_objset_create_check, dmu_objset_create_sync, &doca,"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 1778,
+     "symbol": "dsl_sync_task",
+     "code": "return (dsl_sync_task(dsname, spa_keystore_change_key_check,"
+    },
+    {
+     "file": "module/zfs/dsl_synctask.c",
+     "line": 64,
+     "symbol": "dst_checkfunc",
+     "code": "err = dst.dst_checkfunc(arg, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E022",
+   "from": "spa_sync",
+   "to": "create_crypt",
+   "type": "ctl",
+   "label": "dsl_pool_sync() -> dsl_sync_task_sync(): dmu_objset_create_crypt_check() again, then dmu_objset_create_sync() -> dsl_dataset_create_sync() -> dsl_dataset_create_crypt_sync()",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 11208,
+     "symbol": "dsl_pool_sync",
+     "code": "dsl_pool_sync(dp, txg);"
+    },
+    {
+     "file": "module/zfs/dsl_pool.c",
+     "line": 876,
+     "symbol": "dsl_sync_task_sync",
+     "code": "dsl_sync_task_sync(dst, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_synctask.c",
+     "line": 244,
+     "symbol": "dst_checkfunc",
+     "code": "dst->dst_error = dst->dst_checkfunc(dst->dst_arg, tx);"
+    },
+    {
+     "file": "module/zfs/dmu_objset.c",
+     "line": 1204,
+     "symbol": "dmu_objset_create_crypt_check",
+     "code": "error = dmu_objset_create_crypt_check(pdd, doca->doca_dcp, NULL);"
+    },
+    {
+     "file": "module/zfs/dsl_synctask.c",
+     "line": 246,
+     "symbol": "dst_syncfunc",
+     "code": "dst->dst_syncfunc(dst->dst_arg, tx);"
+    },
+    {
+     "file": "module/zfs/dmu_objset.c",
+     "line": 1257,
+     "symbol": "dsl_dataset_create_sync",
+     "code": "obj = dsl_dataset_create_sync(pdd, tail, NULL, doca->doca_flags,"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 1291,
+     "symbol": "dsl_dataset_create_crypt_sync",
+     "code": "dsl_dataset_create_crypt_sync(dsobj, dd, origin, dcp, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E023",
+   "from": "create_crypt",
+   "to": "wkey_tree",
+   "type": "ctl",
+   "label": "inheriting: dmu_objset_check_wkey_loaded(parent) must find the parent's wrapping key (EACCES otherwise); the sync step holds it with spa_keystore_wkey_hold_dd()",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 1998,
+     "symbol": "dmu_objset_check_wkey_loaded",
+     "code": "ret = dmu_objset_check_wkey_loaded(parentdd);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 2088,
+     "symbol": "spa_keystore_wkey_hold_dd",
+     "code": "VERIFY0(spa_keystore_wkey_hold_dd(dp->dp_spa,"
+    }
+   ]
+  },
+  {
+   "id": "E024",
+   "from": "wkey_tree",
+   "to": "dck_create",
+   "type": "key",
+   "label": "inheriting: the encryption root's wrapping key will wrap the new master key",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 2097,
+     "symbol": "wkey",
+     "code": "dd->dd_crypto_obj = dsl_crypto_key_create_sync(crypt, wkey, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E025",
+   "from": "create_crypt",
+   "to": "dck_create",
+   "type": "ctl",
+   "label": "dsl_crypto_key_create_sync(crypt, wkey); a clone instead shares its origin's key object through dsl_crypto_key_clone_sync()",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 2097,
+     "symbol": "dsl_crypto_key_create_sync",
+     "code": "dd->dd_crypto_obj = dsl_crypto_key_create_sync(crypt, wkey, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 2054,
+     "symbol": "dsl_crypto_key_clone_sync",
+     "code": "dsl_crypto_key_clone_sync(origin->ds_dir, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E026",
+   "from": "dck_create",
+   "to": "dck_sync",
+   "type": "key",
+   "label": "zio_crypt_key_init(): new random master key, HMAC key, key guid and salt; dsl_crypto_key_sync()",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 2761,
+     "symbol": "zio_crypt_key_init",
+     "code": "VERIFY0(zio_crypt_key_init(crypt, &dck.dck_key));"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 2763,
+     "symbol": "dsl_crypto_key_sync",
+     "code": "dsl_crypto_key_sync(&dck, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E027",
+   "from": "dck_sync",
+   "to": "dck_zap",
+   "type": "key",
+   "label": "zio_crypt_key_wrap() under a new random IV; dsl_crypto_key_sync_impl() writes wrapped keys, IV, MAC, suite, guid, encryption root, keyformat, pbkdf2salt, pbkdf2iters",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 1234,
+     "symbol": "zio_crypt_key_wrap",
+     "code": "VERIFY0(zio_crypt_key_wrap(&dck->dck_wkey->wk_key, key, iv, mac,"
+    },
+    {
+     "file": "module/zfs/zio_crypt.c",
+     "line": 355,
+     "symbol": "random_get_pseudo_bytes",
+     "code": "ret = random_get_pseudo_bytes(iv, WRAPPING_IV_LEN);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 1238,
+     "symbol": "dsl_crypto_key_sync_impl",
+     "code": "dsl_crypto_key_sync_impl(tx->tx_pool->dp_meta_objset, dck->dck_obj,"
+    }
+   ]
+  },
+  {
+   "id": "E028",
+   "from": "create_crypt",
+   "to": "wkey_tree",
+   "type": "key",
+   "label": "new encryption root: spa_keystore_load_wkey_impl() loads the new wrapping key, so the dataset can be mounted at once",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 2112,
+     "symbol": "spa_keystore_load_wkey_impl",
+     "code": "VERIFY0(spa_keystore_load_wkey_impl(dp->dp_spa, wkey));"
+    }
+   ]
+  },
+  {
+   "id": "E029",
+   "from": "mount_lib",
+   "to": "objset_own",
+   "type": "ctl",
+   "label": "do_mount() -> mount(2); in the kernel zfs_domount() -> zfsvfs_create() -> dmu_objset_own(decrypt = B_TRUE)",
+   "refs": [
+    {
+     "file": "lib/libzfs/libzfs_mount.c",
+     "line": 535,
+     "symbol": "do_mount",
+     "code": "rc = do_mount(zhp, mountpoint, mntopts, flags);"
+    },
+    {
+     "file": "module/os/linux/zfs/zfs_vfsops.c",
+     "line": 1456,
+     "symbol": "zfsvfs_create",
+     "code": "error = zfsvfs_create(osname, vfs->vfs_readonly, &zfsvfs);"
+    },
+    {
+     "file": "module/os/linux/zfs/zfs_vfsops.c",
+     "line": 651,
+     "symbol": "dmu_objset_own",
+     "code": "error = dmu_objset_own(osname, DMU_OST_ZFS, ro, B_TRUE, zfsvfs, &os);"
+    }
+   ]
+  },
+  {
+   "id": "E030",
+   "from": "objset_own",
+   "to": "km_tree",
+   "type": "ctl",
+   "label": "dsl_dataset_own() -> dsl_dataset_hold_obj_flags(DS_HOLD_FLAG_DECRYPT) -> dsl_dataset_create_key_mapping() -> spa_keystore_create_mapping()",
+   "refs": [
+    {
+     "file": "module/zfs/dmu_objset.c",
+     "line": 819,
+     "symbol": "dsl_dataset_own",
+     "code": "err = dsl_dataset_own(dp, name, flags, tag, &ds);"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 877,
+     "symbol": "dsl_dataset_hold_obj_flags",
+     "code": "int err = dsl_dataset_hold_obj_flags(dp, dsobj, flags, tag, dsp);"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 804,
+     "symbol": "dsl_dataset_create_key_mapping",
+     "code": "err = dsl_dataset_create_key_mapping(*dsp);"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 787,
+     "symbol": "spa_keystore_create_mapping",
+     "code": "return (spa_keystore_create_mapping(dd->dd_pool->dp_spa,"
+    }
+   ]
+  },
+  {
+   "id": "E031",
+   "from": "km_tree",
+   "to": "dck_tree",
+   "type": "ctl",
+   "label": "spa_keystore_dsl_key_hold_dd(): reuse the master key if it is already in memory (a snapshot, clone or other open user of the same key object)",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 1022,
+     "symbol": "spa_keystore_dsl_key_hold_dd",
+     "code": "ret = spa_keystore_dsl_key_hold_dd(spa, ds->ds_dir, km, &km->km_key);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 668,
+     "symbol": "spa_keystore_dsl_key_hold_impl",
+     "code": "ret = spa_keystore_dsl_key_hold_impl(spa, dckobj, tag, &dck_ks);"
+    }
+   ]
+  },
+  {
+   "id": "E032",
+   "from": "dck_tree",
+   "to": "wkey_tree",
+   "type": "ctl",
+   "label": "not in memory: spa_keystore_wkey_hold_dd() finds the wrapping key through the encryption root recorded in the key object; EACCES if it is not loaded",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 676,
+     "symbol": "spa_keystore_wkey_hold_dd",
+     "code": "ret = spa_keystore_wkey_hold_dd(spa, dd, FTAG, &wkey);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 432,
+     "symbol": "dsl_dir_get_encryption_root_ddobj",
+     "code": "ret = dsl_dir_get_encryption_root_ddobj(dd, &rddobj);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 679,
+     "symbol": "EACCES",
+     "code": "return (SET_ERROR(EACCES));"
+    }
+   ]
+  },
+  {
+   "id": "E033",
+   "from": "wkey_tree",
+   "to": "dck_open",
+   "type": "key",
+   "label": "the wrapping key: dsl_crypto_key_open() -> zio_crypt_key_unwrap()",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 683,
+     "symbol": "dsl_crypto_key_open",
+     "code": "ret = dsl_crypto_key_open(spa->spa_meta_objset, wkey, dckobj,"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 598,
+     "symbol": "zio_crypt_key_unwrap",
+     "code": "ret = zio_crypt_key_unwrap(&wkey->wk_key, crypt, version, guid,"
+    }
+   ]
+  },
+  {
+   "id": "E034",
+   "from": "dck_open",
+   "to": "dck_tree",
+   "type": "key",
+   "label": "unwrapped master key (fresh salt, HKDF-derived data key); it takes a hold on the wrapping key and is inserted in sk_dsl_keys",
+   "refs": [
+    {
+     "file": "module/zfs/zio_crypt.c",
+     "line": 450,
+     "symbol": "random_get_bytes",
+     "code": "ret = random_get_bytes(key->zk_salt, ZIO_DATA_SALT_LEN);"
+    },
+    {
+     "file": "module/zfs/zio_crypt.c",
+     "line": 455,
+     "symbol": "hkdf_sha512",
+     "code": "ret = hkdf_sha512(key->zk_master_keydata, ci->ci_keylen, NULL, 0,"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 607,
+     "symbol": "dsl_wrapping_key_hold",
+     "code": "dsl_wrapping_key_hold(wkey, dck);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 700,
+     "symbol": "avl_insert",
+     "code": "avl_insert(&spa->spa_keystore.sk_dsl_keys, dck_io, where);"
+    }
+   ]
+  },
+  {
+   "id": "E035",
+   "from": "dck_tree",
+   "to": "km_tree",
+   "type": "key",
+   "label": "the mapping from dataset object to master key is inserted in sk_key_mappings",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 1052,
+     "symbol": "avl_insert",
+     "code": "avl_insert(&spa->spa_keystore.sk_key_mappings, km, where);"
+    }
+   ]
+  },
+  {
+   "id": "E036",
+   "from": "objset_own",
+   "to": "arc_buf",
+   "type": "ctl",
+   "label": "dmu_objset_own_impl(): the objset block is still unauthenticated, so arc_untransform() -> arc_buf_fill() checks it now that the key is available",
+   "refs": [
+    {
+     "file": "module/zfs/dmu_objset.c",
+     "line": 790,
+     "symbol": "arc_untransform",
+     "code": "err = arc_untransform((*osp)->os_phys_buf, (*osp)->os_spa,"
+    },
+    {
+     "file": "module/zfs/arc.c",
+     "line": 2238,
+     "symbol": "arc_buf_fill",
+     "code": "ret = arc_buf_fill(buf, spa, zb, flags);"
+    }
+   ]
+  },
+  {
+   "id": "E037",
+   "from": "arc_buf",
+   "to": "spa_crypt",
+   "type": "abd",
+   "label": "arc_fill_hdr_crypt() -> arc_hdr_authenticate(): spa_do_crypt_objset_mac_abd() for the objset block, spa_do_crypt_mac_abd() for other authenticated blocks",
+   "refs": [
+    {
+     "file": "module/zfs/arc.c",
+     "line": 2073,
+     "symbol": "arc_fill_hdr_crypt",
+     "code": "error = arc_fill_hdr_crypt(hdr, hash_lock, spa,"
+    },
+    {
+     "file": "module/zfs/arc.c",
+     "line": 1970,
+     "symbol": "arc_hdr_authenticate",
+     "code": "ret = arc_hdr_authenticate(hdr, spa, zb->zb_objset);"
+    },
+    {
+     "file": "module/zfs/arc.c",
+     "line": 1863,
+     "symbol": "spa_do_crypt_objset_mac_abd",
+     "code": "ret = spa_do_crypt_objset_mac_abd(B_FALSE, spa, dsobj, abd,"
+    },
+    {
+     "file": "module/zfs/arc.c",
+     "line": 1866,
+     "symbol": "spa_do_crypt_mac_abd",
+     "code": "ret = spa_do_crypt_mac_abd(B_FALSE, spa, dsobj, abd, psize,"
+    }
+   ]
+  },
+  {
+   "id": "E038",
+   "from": "spa_crypt",
+   "to": "km_tree",
+   "type": "ctl",
+   "label": "spa_keystore_lookup_key(objset id); EACCES if the dataset has no key mapping",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 2995,
+     "symbol": "spa_keystore_lookup_key",
+     "code": "ret = spa_keystore_lookup_key(spa, zb->zb_objset, FTAG, &dck);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 2888,
+     "symbol": "spa_keystore_lookup_key",
+     "code": "ret = spa_keystore_lookup_key(spa, dsobj, FTAG, &dck);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 2948,
+     "symbol": "spa_keystore_lookup_key",
+     "code": "ret = spa_keystore_lookup_key(spa, dsobj, FTAG, &dck);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 2997,
+     "symbol": "EACCES",
+     "code": "ret = SET_ERROR(EACCES);"
+    }
+   ]
+  },
+  {
+   "id": "E039",
+   "from": "km_tree",
+   "to": "spa_crypt",
+   "type": "key",
+   "label": "master key (dsl_crypto_key_t) with a hold for this one operation",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 1131,
+     "symbol": "dck_holds",
+     "code": "zfs_refcount_add(&found_km->km_key->dck_holds, tag);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 1136,
+     "symbol": "km_key",
+     "code": "*dck_out = found_km->km_key;"
+    }
+   ]
+  },
+  {
+   "id": "E040",
+   "from": "spa_crypt",
+   "to": "mac",
+   "type": "abd",
+   "label": "zio_crypt_do_objset_hmacs(): portable and local HMAC over the objset block",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 2896,
+     "symbol": "zio_crypt_do_objset_hmacs",
+     "code": "ret = zio_crypt_do_objset_hmacs(&dck->dck_key, buf, datalen,"
+    }
+   ]
+  },
+  {
+   "id": "E041",
+   "from": "spa_crypt",
+   "to": "mac",
+   "type": "abd",
+   "label": "zio_crypt_do_hmac(): HMAC-SHA512 with the dataset's HMAC key, truncated to 128 bits",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 2954,
+     "symbol": "zio_crypt_do_hmac",
+     "code": "ret = zio_crypt_do_hmac(&dck->dck_key, buf, datalen,"
+    }
+   ]
+  },
+  {
+   "id": "E042",
+   "from": "mac",
+   "to": "spa_crypt",
+   "type": "ctl",
+   "label": "MAC computed; when verifying, compared with the stored one (ECKSUM on mismatch)",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 2915,
+     "symbol": "ECKSUM",
+     "code": "return (SET_ERROR(ECKSUM));"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 2971,
+     "symbol": "ECKSUM",
+     "code": "return (SET_ERROR(ECKSUM));"
+    }
+   ]
+  },
+  {
+   "id": "E043",
+   "from": "spa_crypt",
+   "to": "arc_buf",
+   "type": "ctl",
+   "label": "MAC verified: ARC_FLAG_NOAUTH cleared; EACCES (no key) leaves the block unauthenticated without an error",
+   "refs": [
+    {
+     "file": "module/zfs/arc.c",
+     "line": 1871,
+     "symbol": "ARC_FLAG_NOAUTH",
+     "code": "arc_hdr_clear_flags(hdr, ARC_FLAG_NOAUTH);"
+    },
+    {
+     "file": "module/zfs/arc.c",
+     "line": 1872,
+     "symbol": "EACCES",
+     "code": "else if (ret == EACCES)"
+    }
+   ]
+  },
+  {
+   "id": "E044",
+   "from": "dbuf_sync",
+   "to": "st_encrypt",
+   "type": "abd",
+   "label": "dbuf_write(): dmu_write_policy() sets zp_encrypt; arc_write() -> zio_write(); WRITE_COMPRESS runs first, so ENCRYPT gets the compressed payload",
+   "refs": [
+    {
+     "file": "module/zfs/dbuf.c",
+     "line": 5515,
+     "symbol": "dmu_write_policy",
+     "code": "dmu_write_policy(os, dn, db->db_level, wp_flag, &zp);"
+    },
+    {
+     "file": "module/zfs/dmu.c",
+     "line": 2755,
+     "symbol": "zp_encrypt",
+     "code": "zp->zp_encrypt = encrypt;"
+    },
+    {
+     "file": "module/zfs/dbuf.c",
+     "line": 5600,
+     "symbol": "arc_write",
+     "code": "dr->dr_zio = arc_write(pio, os->os_spa, txg,"
+    },
+    {
+     "file": "include/sys/zio_impl.h",
+     "line": 127,
+     "symbol": "ZIO_STAGE_ENCRYPT",
+     "code": "ZIO_STAGE_ENCRYPT\t\t= 1 << 6,\t/* -W---- */"
+    }
+   ]
+  },
+  {
+   "id": "E045",
+   "from": "st_encrypt",
+   "to": "spa_crypt",
+   "type": "abd",
+   "label": "level-0 block of an encrypted type: spa_do_crypt_abd(B_TRUE, ...)",
+   "refs": [
+    {
+     "file": "module/zfs/zio.c",
+     "line": 5684,
+     "symbol": "spa_do_crypt_abd",
+     "code": "VERIFY0(spa_do_crypt_abd(B_TRUE, spa, &zio->io_bookmark,"
+    }
+   ]
+  },
+  {
+   "id": "E046",
+   "from": "st_encrypt",
+   "to": "spa_crypt",
+   "type": "abd",
+   "label": "other object types in an encrypted objset: spa_do_crypt_mac_abd(B_TRUE, ...); the data stays plaintext",
+   "refs": [
+    {
+     "file": "module/zfs/zio.c",
+     "line": 5649,
+     "symbol": "spa_do_crypt_mac_abd",
+     "code": "VERIFY0(spa_do_crypt_mac_abd(B_TRUE, spa, dsobj,"
+    }
+   ]
+  },
+  {
+   "id": "E047",
+   "from": "st_encrypt",
+   "to": "spa_crypt",
+   "type": "abd",
+   "label": "objset block: spa_do_crypt_objset_mac_abd(B_TRUE, ...) writes both MACs into the block itself",
+   "refs": [
+    {
+     "file": "module/zfs/zio.c",
+     "line": 5641,
+     "symbol": "spa_do_crypt_objset_mac_abd",
+     "code": "VERIFY0(spa_do_crypt_objset_mac_abd(B_TRUE, spa, dsobj,"
+    }
+   ]
+  },
+  {
+   "id": "E048",
+   "from": "st_encrypt",
+   "to": "mac",
+   "type": "abd",
+   "label": "indirect block: zio_crypt_do_indirect_mac_checksum_abd() hashes the children's MACs with SHA-512, no key needed",
+   "refs": [
+    {
+     "file": "module/zfs/zio.c",
+     "line": 5626,
+     "symbol": "zio_crypt_do_indirect_mac_checksum_abd",
+     "code": "VERIFY0(zio_crypt_do_indirect_mac_checksum_abd(B_TRUE,"
+    }
+   ]
+  },
+  {
+   "id": "E049",
+   "from": "spa_crypt",
+   "to": "salt_iv",
+   "type": "key",
+   "label": "zio_crypt_key_get_salt() (rotating the salt with zio_crypt_key_change_salt() when it is used up) and zio_crypt_generate_iv(); a dedup block uses zio_crypt_generate_iv_salt_dedup() instead",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 3019,
+     "symbol": "zio_crypt_key_get_salt",
+     "code": "ret = zio_crypt_key_get_salt(&dck->dck_key, salt);"
+    },
+    {
+     "file": "module/zfs/zio_crypt.c",
+     "line": 334,
+     "symbol": "zio_crypt_key_change_salt",
+     "code": "ret = zio_crypt_key_change_salt(key);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 3023,
+     "symbol": "zio_crypt_generate_iv",
+     "code": "ret = zio_crypt_generate_iv(iv);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 3027,
+     "symbol": "zio_crypt_generate_iv_salt_dedup",
+     "code": "ret = zio_crypt_generate_iv_salt_dedup(&dck->dck_key,"
+    }
+   ]
+  },
+  {
+   "id": "E050",
+   "from": "salt_iv",
+   "to": "aead",
+   "type": "key",
+   "label": "salt and IV with the master key: zio_do_crypt_data(B_TRUE) uses the cached data key for the current salt",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 3034,
+     "symbol": "zio_do_crypt_data",
+     "code": "ret = zio_do_crypt_data(encrypt, &dck->dck_key, ot, bswap, salt, iv,"
+    },
+    {
+     "file": "module/zfs/zio_crypt.c",
+     "line": 1539,
+     "symbol": "zk_salt",
+     "code": "if (memcmp(salt, key->zk_salt, ZIO_DATA_SALT_LEN) == 0) {"
+    }
+   ]
+  },
+  {
+   "id": "E051",
+   "from": "spa_crypt",
+   "to": "aead",
+   "type": "abd",
+   "label": "zio_do_crypt_data(B_FALSE) with the salt, IV and MAC of the block; a salt other than the current one gets its key from hkdf_sha512(master key, salt)",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 3034,
+     "symbol": "zio_do_crypt_data",
+     "code": "ret = zio_do_crypt_data(encrypt, &dck->dck_key, ot, bswap, salt, iv,"
+    },
+    {
+     "file": "module/zfs/zio_crypt.c",
+     "line": 1546,
+     "symbol": "hkdf_sha512",
+     "code": "ret = hkdf_sha512(key->zk_master_keydata, ci->ci_keylen, NULL,"
+    }
+   ]
+  },
+  {
+   "id": "E052",
+   "from": "aead",
+   "to": "spa_crypt",
+   "type": "abd",
+   "label": "zio_encrypt_os(): ciphertext and 128-bit MAC; zio_decrypt_os(): plaintext, or ECKSUM when the MAC does not match",
+   "refs": [
+    {
+     "file": "module/zfs/zio_crypt.c",
+     "line": 1598,
+     "symbol": "zio_encrypt_os",
+     "code": "ret = zio_encrypt_os(ci, ckey, sess, &puio, &cuio, enc_len,"
+    },
+    {
+     "file": "module/zfs/zio_crypt.c",
+     "line": 1601,
+     "symbol": "zio_decrypt_os",
+     "code": "ret = zio_decrypt_os(ci, ckey, sess, &cuio, &puio, enc_len,"
+    }
+   ]
+  },
+  {
+   "id": "E053",
+   "from": "mac",
+   "to": "st_encrypt",
+   "type": "bp",
+   "label": "checksum of the children's MACs, stored in the MAC field",
+   "refs": [
+    {
+     "file": "module/zfs/zio.c",
+     "line": 5626,
+     "symbol": "zio_crypt_do_indirect_mac_checksum_abd",
+     "code": "VERIFY0(zio_crypt_do_indirect_mac_checksum_abd(B_TRUE,"
+    }
+   ]
+  },
+  {
+   "id": "E054",
+   "from": "spa_crypt",
+   "to": "st_encrypt",
+   "type": "abd",
+   "label": "back in zio_encrypt(): ciphertext pushed as the write transform plus MAC, or the MAC alone for an authenticated type; the objset block already holds its MACs",
+   "refs": [
+    {
+     "file": "module/zfs/zio.c",
+     "line": 5705,
+     "symbol": "zio_push_transform",
+     "code": "zio_push_transform(zio, eabd, psize, psize, NULL);"
+    }
+   ]
+  },
+  {
+   "id": "E055",
+   "from": "st_encrypt",
+   "to": "bp_crypt",
+   "type": "bp",
+   "label": "zio_crypt_encode_params_bp() (salt and IV of an encrypted block) and zio_crypt_encode_mac_bp() (every block but the objset block); the checksum computed next covers the stored bytes",
+   "refs": [
+    {
+     "file": "module/zfs/zio.c",
+     "line": 5698,
+     "symbol": "zio_crypt_encode_params_bp",
+     "code": "zio_crypt_encode_params_bp(bp, salt, iv);"
+    },
+    {
+     "file": "module/zfs/zio.c",
+     "line": 5699,
+     "symbol": "zio_crypt_encode_mac_bp",
+     "code": "zio_crypt_encode_mac_bp(bp, mac);"
+    },
+    {
+     "file": "module/zfs/zio.c",
+     "line": 5629,
+     "symbol": "zio_crypt_encode_mac_bp",
+     "code": "zio_crypt_encode_mac_bp(bp, mac);"
+    },
+    {
+     "file": "module/zfs/zio.c",
+     "line": 5651,
+     "symbol": "zio_crypt_encode_mac_bp",
+     "code": "zio_crypt_encode_mac_bp(bp, mac);"
+    },
+    {
+     "file": "module/zfs/zio.c",
+     "line": 5619,
+     "symbol": "zio_crypt_encode_params_bp",
+     "code": "zio_crypt_encode_params_bp(bp, zp->zp_salt, zp->zp_iv);"
+    },
+    {
+     "file": "module/zfs/zio.c",
+     "line": 5601,
+     "symbol": "zio_crypt_encode_mac_bp",
+     "code": "zio_crypt_encode_mac_bp(bp, zp->zp_mac);"
+    }
+   ]
+  },
+  {
+   "id": "E056",
+   "from": "dbuf_read",
+   "to": "arc_read",
+   "type": "ctl",
+   "label": "dbuf_read_impl(): arc_read() without ZIO_FLAG_RAW, asking for plaintext",
+   "refs": [
+    {
+     "file": "module/zfs/dbuf.c",
+     "line": 1707,
+     "symbol": "arc_read",
+     "code": "return (arc_read(zio, db->db_objset->os_spa, &copy,"
+    }
+   ]
+  },
+  {
+   "id": "E057",
+   "from": "arc_read",
+   "to": "st_read_bp_init",
+   "type": "zio",
+   "label": "miss: zio_read() of the block",
+   "refs": [
+    {
+     "file": "module/zfs/arc.c",
+     "line": 6472,
+     "symbol": "zio_read",
+     "code": "rzio = zio_read(pio, spa, bp, hdr_abd, size,"
+    }
+   ]
+  },
+  {
+   "id": "E058",
+   "from": "st_read_bp_init",
+   "to": "st_done",
+   "type": "zio",
+   "label": "protected block: zio_push_transform(zio_decrypt); after the device read (I/O graph path read_miss) zio_done() runs zio_pop_transforms()",
+   "refs": [
+    {
+     "file": "module/zfs/zio.c",
+     "line": 1884,
+     "symbol": "zio_decrypt",
+     "code": "psize, psize, zio_decrypt);"
+    },
+    {
+     "file": "module/zfs/zio.c",
+     "line": 6148,
+     "symbol": "zio_pop_transforms",
+     "code": "zio_pop_transforms(zio);\t/* note: may set zio->io_error */"
+    }
+   ]
+  },
+  {
+   "id": "E059",
+   "from": "st_done",
+   "to": "bp_crypt",
+   "type": "bp",
+   "label": "zio_decrypt(): zio_crypt_decode_params_bp(), zio_crypt_decode_mac_bp() (a ZIL block: zio_crypt_decode_mac_zil() from its header)",
+   "refs": [
+    {
+     "file": "module/zfs/zio.c",
+     "line": 653,
+     "symbol": "zio_crypt_decode_params_bp",
+     "code": "zio_crypt_decode_params_bp(bp, salt, iv);"
+    },
+    {
+     "file": "module/zfs/zio.c",
+     "line": 660,
+     "symbol": "zio_crypt_decode_mac_bp",
+     "code": "zio_crypt_decode_mac_bp(bp, mac);"
+    },
+    {
+     "file": "module/zfs/zio.c",
+     "line": 657,
+     "symbol": "zio_crypt_decode_mac_zil",
+     "code": "zio_crypt_decode_mac_zil(tmp, mac);"
+    }
+   ]
+  },
+  {
+   "id": "E060",
+   "from": "st_done",
+   "to": "spa_crypt",
+   "type": "abd",
+   "label": "zio_decrypt(): spa_do_crypt_abd(B_FALSE, ...)",
+   "refs": [
+    {
+     "file": "module/zfs/zio.c",
+     "line": 663,
+     "symbol": "spa_do_crypt_abd",
+     "code": "ret = spa_do_crypt_abd(B_FALSE, spa, &zio->io_bookmark, BP_GET_TYPE(bp),"
+    }
+   ]
+  },
+  {
+   "id": "E061",
+   "from": "spa_crypt",
+   "to": "st_done",
+   "type": "abd",
+   "label": "plaintext (still compressed); ECKSUM becomes EIO plus an authentication ereport",
+   "refs": [
+    {
+     "file": "module/zfs/zio.c",
+     "line": 685,
+     "symbol": "EIO",
+     "code": "zio->io_error = SET_ERROR(EIO);"
+    },
+    {
+     "file": "module/zfs/zio.c",
+     "line": 689,
+     "symbol": "FM_EREPORT_ZFS_AUTHENTICATION",
+     "code": "(void) zfs_ereport_post(FM_EREPORT_ZFS_AUTHENTICATION,"
+    }
+   ]
+  },
+  {
+   "id": "E062",
+   "from": "st_done",
+   "to": "arc_buf",
+   "type": "arc",
+   "label": "done callback arc_read_done(): the header keeps the plaintext; arc_buf_alloc_impl() for every waiting caller",
+   "refs": [
+    {
+     "file": "module/zfs/zio.c",
+     "line": 6439,
+     "symbol": "io_done",
+     "code": "zio->io_done(zio);"
+    },
+    {
+     "file": "module/zfs/arc.c",
+     "line": 5611,
+     "symbol": "arc_read_done",
+     "code": "arc_read_done(zio_t *zio)"
+    },
+    {
+     "file": "module/zfs/arc.c",
+     "line": 5709,
+     "symbol": "arc_buf_alloc_impl",
+     "code": "int error = arc_buf_alloc_impl(hdr, zio->io_spa,"
+    }
+   ]
+  },
+  {
+   "id": "E063",
+   "from": "arc_read",
+   "to": "arc_buf",
+   "type": "arc",
+   "label": "hit on a header that holds only ciphertext (left by a raw reader): arc_buf_alloc_impl() -> arc_buf_fill() -> arc_fill_hdr_crypt()",
+   "refs": [
+    {
+     "file": "module/zfs/arc.c",
+     "line": 6073,
+     "symbol": "arc_buf_alloc_impl",
+     "code": "rc = arc_buf_alloc_impl(hdr, spa, zb, private,"
+    },
+    {
+     "file": "module/zfs/arc.c",
+     "line": 2867,
+     "symbol": "arc_buf_fill",
+     "code": "return (arc_buf_fill(buf, spa, zb, flags));"
+    },
+    {
+     "file": "module/zfs/arc.c",
+     "line": 2073,
+     "symbol": "arc_fill_hdr_crypt",
+     "code": "error = arc_fill_hdr_crypt(hdr, hash_lock, spa,"
+    }
+   ]
+  },
+  {
+   "id": "E064",
+   "from": "arc_buf",
+   "to": "spa_crypt",
+   "type": "abd",
+   "label": "arc_hdr_decrypt(): spa_do_crypt_abd(B_FALSE, ...) with the salt, IV and MAC saved in the header",
+   "refs": [
+    {
+     "file": "module/zfs/arc.c",
+     "line": 1979,
+     "symbol": "arc_hdr_decrypt",
+     "code": "ret = arc_hdr_decrypt(hdr, spa, zb);"
+    },
+    {
+     "file": "module/zfs/arc.c",
+     "line": 1900,
+     "symbol": "spa_do_crypt_abd",
+     "code": "ret = spa_do_crypt_abd(B_FALSE, spa, zb, hdr->b_crypt_hdr.b_ot,"
+    }
+   ]
+  },
+  {
+   "id": "E065",
+   "from": "spa_crypt",
+   "to": "arc_buf",
+   "type": "abd",
+   "label": "plaintext kept in the header for later hits; an error marks the header ARC_FLAG_IO_ERROR",
+   "refs": [
+    {
+     "file": "module/zfs/arc.c",
+     "line": 2080,
+     "symbol": "ARC_FLAG_IO_ERROR",
+     "code": "arc_hdr_set_flags(hdr, ARC_FLAG_IO_ERROR);"
+    }
+   ]
+  },
+  {
+   "id": "E066",
+   "from": "arc_buf",
+   "to": "dbuf_read",
+   "type": "arc",
+   "label": "callback dbuf_read_done(): the consumer gets plaintext",
+   "refs": [
+    {
+     "file": "module/zfs/dbuf.c",
+     "line": 1366,
+     "symbol": "dbuf_read_done",
+     "code": "dbuf_read_done(zio_t *zio, const zbookmark_phys_t *zb, const blkptr_t *bp,"
+    }
+   ]
+  },
+  {
+   "id": "E067",
+   "from": "spa_sync",
+   "to": "change_key",
+   "type": "ctl",
+   "label": "dsl_pool_sync() -> dsl_sync_task_sync(): spa_keystore_change_key_check() again, then spa_keystore_change_key_sync()",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_pool.c",
+     "line": 876,
+     "symbol": "dsl_sync_task_sync",
+     "code": "dsl_sync_task_sync(dst, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 1778,
+     "symbol": "spa_keystore_change_key_check",
+     "code": "return (dsl_sync_task(dsname, spa_keystore_change_key_check,"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 1779,
+     "symbol": "spa_keystore_change_key_sync",
+     "code": "spa_keystore_change_key_sync, &skcka, 15,"
+    }
+   ]
+  },
+  {
+   "id": "E068",
+   "from": "change_key",
+   "to": "wkey_tree",
+   "type": "ctl",
+   "label": "check: dmu_objset_check_wkey_loaded() for the dataset (and for -i its parent), EACCES if not loaded; every key to be rewrapped must unwrap (ZFS_ERR_CRYPTO_KEY_MISMATCH)",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 1532,
+     "symbol": "dmu_objset_check_wkey_loaded",
+     "code": "ret = dmu_objset_check_wkey_loaded(dd);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 1447,
+     "symbol": "dmu_objset_check_wkey_loaded",
+     "code": "ret = dmu_objset_check_wkey_loaded(dd->dd_parent);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 1319,
+     "symbol": "ZFS_ERR_CRYPTO_KEY_MISMATCH",
+     "code": "ret = SET_ERROR(ZFS_ERR_CRYPTO_KEY_MISMATCH);"
+    }
+   ]
+  },
+  {
+   "id": "E069",
+   "from": "wkey_tree",
+   "to": "change_key",
+   "type": "key",
+   "label": "-i: spa_keystore_wkey_hold_dd(parent) returns the wrapping key of the parent's encryption root",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 1710,
+     "symbol": "spa_keystore_wkey_hold_dd",
+     "code": "VERIFY0(spa_keystore_wkey_hold_dd(spa,"
+    }
+   ]
+  },
+  {
+   "id": "E070",
+   "from": "change_key",
+   "to": "dck_tree",
+   "type": "ctl",
+   "label": "spa_keystore_change_key_sync_impl(): for the dataset and each descendant with the same encryption root (clones skipped), spa_keystore_dsl_key_hold_dd(), unwrapping with the old key if not in memory",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 1609,
+     "symbol": "spa_keystore_dsl_key_hold_dd",
+     "code": "VERIFY0(spa_keystore_dsl_key_hold_dd(dp->dp_spa, dd,"
+    }
+   ]
+  },
+  {
+   "id": "E071",
+   "from": "dck_tree",
+   "to": "dck_sync",
+   "type": "key",
+   "label": "the same master key with dck_wkey switched to the new wrapping key: dsl_crypto_key_sync()",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 1613,
+     "symbol": "dck_wkey",
+     "code": "dck->dck_wkey = wkey;"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 1614,
+     "symbol": "dsl_crypto_key_sync",
+     "code": "dsl_crypto_key_sync(dck, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E072",
+   "from": "change_key",
+   "to": "wkey_tree",
+   "type": "key",
+   "label": "the dataset's own wrapping key entry is removed and freed; a new key is inserted in its place, making the dataset an encryption root",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 1742,
+     "symbol": "avl_remove",
+     "code": "avl_remove(&spa->spa_keystore.sk_wkeys, found_wkey);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 1743,
+     "symbol": "dsl_wrapping_key_free",
+     "code": "dsl_wrapping_key_free(found_wkey);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 1748,
+     "symbol": "avl_insert",
+     "code": "avl_insert(&spa->spa_keystore.sk_wkeys, wkey, where);"
+    }
+   ]
+  },
+  {
+   "id": "E073",
+   "from": "objset_own",
+   "to": "km_tree",
+   "type": "ctl",
+   "label": "unmount: zfs_umount() -> dmu_objset_disown() -> dsl_dataset_rele_flags() -> dsl_dataset_remove_key_mapping() -> spa_keystore_remove_mapping()",
+   "refs": [
+    {
+     "file": "module/os/linux/zfs/zfs_vfsops.c",
+     "line": 1637,
+     "symbol": "dmu_objset_disown",
+     "code": "dmu_objset_disown(os, B_TRUE, zfsvfs);"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 1027,
+     "symbol": "dsl_dataset_remove_key_mapping",
+     "code": "dsl_dataset_remove_key_mapping(ds);"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 1018,
+     "symbol": "spa_keystore_remove_mapping",
+     "code": "(void) spa_keystore_remove_mapping(dd->dd_pool->dp_spa,"
+    }
+   ]
+  },
+  {
+   "id": "E074",
+   "from": "km_tree",
+   "to": "dck_tree",
+   "type": "ctl",
+   "label": "key_mapping_rele(): the last reference frees the mapping and calls spa_keystore_dsl_key_rele()",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 1004,
+     "symbol": "spa_keystore_dsl_key_rele",
+     "code": "spa_keystore_dsl_key_rele(spa, km->km_key, km);"
+    }
+   ]
+  },
+  {
+   "id": "E075",
+   "from": "dck_tree",
+   "to": "wkey_tree",
+   "type": "ctl",
+   "label": "refcount zero: dsl_crypto_key_free() zeroes the master key and drops its hold with dsl_wrapping_key_rele()",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 721,
+     "symbol": "dsl_crypto_key_free",
+     "code": "dsl_crypto_key_free(dck);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 527,
+     "symbol": "dsl_wrapping_key_rele",
+     "code": "dsl_wrapping_key_rele(dck->dck_wkey, dck);"
+    }
+   ]
+  },
+  {
+   "id": "E076",
+   "from": "mount_lib",
+   "to": "objset_own",
+   "type": "ctl",
+   "label": "unmount_one() -> umount2(2); in the kernel zfs_umount()",
+   "refs": [
+    {
+     "file": "lib/libzfs/libzfs_mount.c",
+     "line": 652,
+     "symbol": "unmount_one",
+     "code": "if (unmount_one(zhp, mntpt, flags) != 0) {"
+    },
+    {
+     "file": "module/os/linux/zfs/zpl_super.c",
+     "line": 147,
+     "symbol": "zfs_umount",
+     "code": "error = -zfs_umount(sb);"
+    }
+   ]
+  },
+  {
+   "id": "E077",
+   "from": "zfs_cmd",
+   "to": "raw_send",
+   "type": "ctl",
+   "label": "zfs send -w sets flags.raw; dmu_send() with rawok holds the snapshot without DS_HOLD_FLAG_DECRYPT, so no key needs to be loaded",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 4868,
+     "symbol": "flags.raw",
+     "code": "flags.raw = B_TRUE;"
+    },
+    {
+     "file": "module/zfs/dmu_send.c",
+     "line": 2849,
+     "symbol": "rawok",
+     "code": "dsflags = (rawok) ? DS_HOLD_FLAG_NONE : DS_HOLD_FLAG_DECRYPT;"
+    }
+   ]
+  },
+  {
+   "id": "E078",
+   "from": "dck_zap",
+   "to": "raw_send",
+   "type": "key",
+   "label": "dsl_crypto_populate_key_nvlist(): wrapped master and HMAC keys with IV and MAC, suite, guid, version, the root's keyformat, pbkdf2salt, pbkdf2iters, portable_mac, meta-dnode layout, IVset guids; added to DRR_BEGIN as crypt_keydata",
+   "refs": [
+    {
+     "file": "module/zfs/dmu_send.c",
+     "line": 2625,
+     "symbol": "dsl_crypto_populate_key_nvlist",
+     "code": "err = dsl_crypto_populate_key_nvlist(os, ivset_guid,"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 2625,
+     "symbol": "DSL_CRYPTO_KEY_MASTER_KEY",
+     "code": "ret = zap_lookup(mos, dckobj, DSL_CRYPTO_KEY_MASTER_KEY, 1,"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 2714,
+     "symbol": "\"portable_mac\"",
+     "code": "VERIFY0(nvlist_add_uint8_array(nvl, \"portable_mac\","
+    },
+    {
+     "file": "module/zfs/dmu_send.c",
+     "line": 2632,
+     "symbol": "crypt_keydata",
+     "code": "fnvlist_add_nvlist(nvl, \"crypt_keydata\", keynvl);"
+    }
+   ]
+  },
+  {
+   "id": "E079",
+   "from": "raw_send",
+   "to": "arc_read",
+   "type": "ctl",
+   "label": "issue_data_read(): arc_read() with ZIO_FLAG_RAW",
+   "refs": [
+    {
+     "file": "module/zfs/dmu_send.c",
+     "line": 1658,
+     "symbol": "ZIO_FLAG_RAW",
+     "code": "zioflags |= ZIO_FLAG_RAW;"
+    },
+    {
+     "file": "module/zfs/dmu_send.c",
+     "line": 1684,
+     "symbol": "arc_read",
+     "code": "int arc_err = arc_read(NULL, os->os_spa, bp,"
+    }
+   ]
+  },
+  {
+   "id": "E080",
+   "from": "arc_read",
+   "to": "raw_send",
+   "type": "abd",
+   "label": "the block exactly as stored: ciphertext, or plaintext plus MAC for an authenticated type",
+   "refs": [
+    {
+     "file": "module/zfs/dmu_send.c",
+     "line": 1685,
+     "symbol": "arc_getbuf_func",
+     "code": "arc_getbuf_func, &srdp->abuf, ZIO_PRIORITY_ASYNC_READ,"
+    }
+   ]
+  },
+  {
+   "id": "E081",
+   "from": "bp_crypt",
+   "to": "raw_send",
+   "type": "bp",
+   "label": "dmu_dump_write(): zio_crypt_decode_params_bp() and zio_crypt_decode_mac_bp() fill drr_salt, drr_iv and drr_mac of the DRR_WRITE record",
+   "refs": [
+    {
+     "file": "module/zfs/dmu_send.c",
+     "line": 505,
+     "symbol": "zio_crypt_decode_params_bp",
+     "code": "zio_crypt_decode_params_bp(bp, drrw->drr_salt,"
+    },
+    {
+     "file": "module/zfs/dmu_send.c",
+     "line": 507,
+     "symbol": "zio_crypt_decode_mac_bp",
+     "code": "zio_crypt_decode_mac_bp(bp, drrw->drr_mac);"
+    }
+   ]
+  },
+  {
+   "id": "E082",
+   "from": "raw_send",
+   "to": "raw_recv",
+   "type": "abd",
+   "label": "the stream: DRR_BEGIN with crypt_keydata, then records with the stored bytes and their salt, IV and MAC",
+   "refs": [
+    {
+     "file": "module/zfs/dmu_send.c",
+     "line": 2644,
+     "symbol": "dump_record",
+     "code": "err = dump_record(&dsc, payload, payload_len);"
+    },
+    {
+     "file": "module/zfs/dmu_recv.c",
+     "line": 5247,
+     "symbol": "crypt_keydata",
+     "code": "err = nvlist_lookup_nvlist(drc->drc_begin_nvl, \"crypt_keydata\","
+    }
+   ]
+  },
+  {
+   "id": "E083",
+   "from": "raw_recv",
+   "to": "dck_zap",
+   "type": "key",
+   "label": "dsl_crypto_recv_raw() sync task -> dsl_crypto_recv_raw_key_sync(): a new dataset gets keylocation \"prompt\", itself as encryption root, and dsl_crypto_key_sync_impl() stores the received wrapped keys unchanged; an existing dataset gets them at the end of the receive",
+   "refs": [
+    {
+     "file": "module/zfs/dmu_recv.c",
+     "line": 5259,
+     "symbol": "dsl_crypto_recv_raw",
+     "code": "err = dsl_crypto_recv_raw(spa_name(drc->drc_os->os_spa),"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 2563,
+     "symbol": "dsl_crypto_recv_raw_key_sync",
+     "code": "dsl_crypto_recv_raw_key_sync(ds, dcrka->dcrka_nvl, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 2404,
+     "symbol": "\"prompt\"",
+     "code": "const char *keylocation = \"prompt\";"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 2456,
+     "symbol": "rddobj",
+     "code": "rddobj = dd->dd_object;"
+    },
+    {
+     "file": "module/zfs/dsl_crypt.c",
+     "line": 2506,
+     "symbol": "dsl_crypto_key_sync_impl",
+     "code": "dsl_crypto_key_sync_impl(mos, dd->dd_crypto_obj, crypt,"
+    },
+    {
+     "file": "module/zfs/dmu_recv.c",
+     "line": 5578,
+     "symbol": "dsl_crypto_recv_raw_key_sync",
+     "code": "dsl_crypto_recv_raw_key_sync(drc->drc_ds,"
+    }
+   ]
+  },
+  {
+   "id": "E084",
+   "from": "raw_recv",
+   "to": "st_encrypt",
+   "type": "abd",
+   "label": "flush_write_batch_impl(): ZIO_FLAG_RAW and the record's salt, IV and MAC; dmu_lightweight_write_by_dnode(); at txg sync zio_encrypt() takes the ZIO_FLAG_RAW_ENCRYPT branch and uses no key",
+   "refs": [
+    {
+     "file": "module/zfs/dmu_recv.c",
+     "line": 3888,
+     "symbol": "ZIO_FLAG_RAW",
+     "code": "zio_flags |= ZIO_FLAG_RAW;"
+    },
+    {
+     "file": "module/zfs/dmu_recv.c",
+     "line": 3917,
+     "symbol": "dmu_lightweight_write_by_dnode",
+     "code": "err = dmu_lightweight_write_by_dnode(dn,"
+    },
+    {
+     "file": "module/zfs/zio.c",
+     "line": 5596,
+     "symbol": "ZIO_FLAG_RAW_ENCRYPT",
+     "code": "if (zio->io_flags & ZIO_FLAG_RAW_ENCRYPT) {"
+    }
+   ]
+  },
+  {
+   "id": "E085",
+   "from": "admin",
+   "to": "zfs_cmd",
+   "type": "ctl",
+   "label": "runs zfs create -o encryption=on -o keyformat=... -o keylocation=... dataset",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 194,
+     "symbol": "zfs_do_create",
+     "code": "{ \"create\",\tzfs_do_create,\t\tHELP_CREATE\t\t},"
+    }
+   ]
+  },
+  {
+   "id": "E086",
+   "from": "admin",
+   "to": "zfs_cmd",
+   "type": "ctl",
+   "label": "runs zfs load-key or zfs unload-key [-r | -a]",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 234,
+     "symbol": "zfs_do_load_key",
+     "code": "{ \"load-key\",\tzfs_do_load_key,\tHELP_LOAD_KEY\t\t},"
+    },
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 235,
+     "symbol": "zfs_do_unload_key",
+     "code": "{ \"unload-key\",\tzfs_do_unload_key,\tHELP_UNLOAD_KEY\t\t},"
+    }
+   ]
+  },
+  {
+   "id": "E087",
+   "from": "admin",
+   "to": "zfs_cmd",
+   "type": "ctl",
+   "label": "runs zfs mount [-l] or zfs unmount [-u]",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 218,
+     "symbol": "zfs_do_mount",
+     "code": "{ \"mount\",\tzfs_do_mount,\t\tHELP_MOUNT\t\t},"
+    },
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 219,
+     "symbol": "zfs_do_unmount",
+     "code": "{ \"unmount\",\tzfs_do_unmount,\t\tHELP_UNMOUNT\t\t},"
+    }
+   ]
+  },
+  {
+   "id": "E088",
+   "from": "admin",
+   "to": "zfs_cmd",
+   "type": "ctl",
+   "label": "runs zfs change-key [-l] [-o keyformat=...] or zfs change-key -i",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 236,
+     "symbol": "zfs_do_change_key",
+     "code": "{ \"change-key\",\tzfs_do_change_key,\tHELP_CHANGE_KEY\t\t},"
+    }
+   ]
+  },
+  {
+   "id": "E089",
+   "from": "admin",
+   "to": "zfs_cmd",
+   "type": "ctl",
+   "label": "runs zfs send -w (raw) snapshot, piped into zfs receive",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 223,
+     "symbol": "zfs_do_send",
+     "code": "{ \"send\",\tzfs_do_send,\t\tHELP_SEND\t\t},"
+    }
+   ]
+  }
+ ],
+ "paths": [
+  {
+   "id": "create",
+   "category": "Key management",
+   "title": "Create an encrypted dataset",
+   "summary": "`zfs create -o encryption=on -o keyformat=passphrase pool/secret`, or a plain `zfs create pool/secret/child` under an encrypted parent. Either way the new dataset gets its own random master key; what differs is which wrapping key wraps it.",
+   "ends": "The dataset has a DSL Crypto Key object whose encryption root is itself (newroot) or the parent's root (inherit). Its wrapping key is loaded, so `zfs create` goes on to mount it (path mount).",
+   "alts": [
+    {
+     "id": "root",
+     "options": [
+      {
+       "id": "newroot",
+       "label": "New encryption root (keyformat given, own wrapping key)"
+      },
+      {
+       "id": "inherit",
+       "label": "Child of an encrypted parent, wrapped with the parent's encryption root key"
+      }
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "wire": "E085"
+    },
+    {
+     "wire": "E001"
+    },
+    {
+     "wire": "E007",
+     "when": [
+      {
+       "group": "root",
+       "options": [
+        "newroot"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E009",
+     "when": [
+      {
+       "group": "root",
+       "options": [
+        "newroot"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E010",
+     "when": [
+      {
+       "group": "root",
+       "options": [
+        "newroot"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E011",
+     "when": [
+      {
+       "group": "root",
+       "options": [
+        "inherit"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E012"
+    },
+    {
+     "wire": "E013"
+    },
+    {
+     "wire": "E021"
+    },
+    {
+     "wire": "E022"
+    },
+    {
+     "wire": "E023",
+     "when": [
+      {
+       "group": "root",
+       "options": [
+        "inherit"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E024",
+     "when": [
+      {
+       "group": "root",
+       "options": [
+        "inherit"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E025"
+    },
+    {
+     "wire": "E026"
+    },
+    {
+     "wire": "E027"
+    },
+    {
+     "wire": "E028",
+     "when": [
+      {
+       "group": "root",
+       "options": [
+        "newroot"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "load_key",
+   "category": "Key management",
+   "title": "zfs load-key",
+   "summary": "Loads the wrapping key of an encryption root. Nothing is decrypted yet: the key is only proved by unwrapping the root's own master key, and that copy is thrown away again.",
+   "ends": "The wrapping key is in the keystore. keystatus is `available` for the root and for every dataset whose encryption root it is. No master key is in memory until a dataset is opened (path mount).",
+   "alts": [
+    {
+     "id": "fmt",
+     "options": [
+      {
+       "id": "passphrase",
+       "label": "keyformat=passphrase"
+      },
+      {
+       "id": "rawhex",
+       "label": "keyformat=raw or keyformat=hex"
+      }
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "wire": "E086"
+    },
+    {
+     "wire": "E002"
+    },
+    {
+     "wire": "E008"
+    },
+    {
+     "wire": "E009",
+     "when": [
+      {
+       "group": "fmt",
+       "options": [
+        "passphrase"
+       ]
+      }
+     ],
+     "note": "PBKDF2-HMAC-SHA1 over the passphrase with pbkdf2salt and pbkdf2iters: the slow step that protects against guessing"
+    },
+    {
+     "wire": "E009",
+     "when": [
+      {
+       "group": "fmt",
+       "options": [
+        "rawhex"
+       ]
+      }
+     ],
+     "note": "raw: the 32 bytes are the wrapping key; hex: 64 hex digits decoded to 32 bytes"
+    },
+    {
+     "wire": "E010"
+    },
+    {
+     "wire": "E012"
+    },
+    {
+     "wire": "E013"
+    },
+    {
+     "wire": "E014"
+    },
+    {
+     "wire": "E015"
+    },
+    {
+     "wire": "E016"
+    },
+    {
+     "wire": "E017"
+    },
+    {
+     "wire": "E018"
+    }
+   ]
+  },
+  {
+   "id": "mount",
+   "category": "Key management",
+   "title": "Mount: master key unwrapped, key mapping created",
+   "summary": "Opening a dataset for decryption is where a master key is unwrapped and bound to the dataset. From then on every block I/O of the dataset finds its key by objset id.",
+   "ends": "The dataset is owned with a key mapping, its objset block is authenticated, and its master key is held by the mapping (and holds the wrapping key). Reads and writes now work (paths read and write).",
+   "alts": [
+    {
+     "id": "how",
+     "options": [
+      {
+       "id": "l",
+       "label": "zfs mount -l (loads the encryption root's key first if needed, as in path load_key)"
+      },
+      {
+       "id": "loaded",
+       "label": "key already loaded"
+      }
+     ]
+    },
+    {
+     "id": "master",
+     "options": [
+      {
+       "id": "cold",
+       "label": "master key not in memory yet"
+      },
+      {
+       "id": "warm",
+       "label": "already in memory (another open snapshot, clone or user of the same key object)"
+      }
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "wire": "E087"
+    },
+    {
+     "wire": "E004"
+    },
+    {
+     "wire": "E005",
+     "when": [
+      {
+       "group": "how",
+       "options": [
+        "l"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E029"
+    },
+    {
+     "wire": "E030"
+    },
+    {
+     "wire": "E031"
+    },
+    {
+     "wire": "E032",
+     "when": [
+      {
+       "group": "master",
+       "options": [
+        "cold"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E033",
+     "when": [
+      {
+       "group": "master",
+       "options": [
+        "cold"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E016",
+     "when": [
+      {
+       "group": "master",
+       "options": [
+        "cold"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E034",
+     "when": [
+      {
+       "group": "master",
+       "options": [
+        "cold"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E035"
+    },
+    {
+     "wire": "E036"
+    },
+    {
+     "wire": "E037"
+    },
+    {
+     "wire": "E038"
+    },
+    {
+     "wire": "E039"
+    },
+    {
+     "wire": "E040"
+    },
+    {
+     "wire": "E042"
+    },
+    {
+     "wire": "E043"
+    }
+   ]
+  },
+  {
+   "id": "write",
+   "category": "Data path",
+   "title": "Write a block: encrypt or authenticate",
+   "summary": "A dirty block of an encrypted dataset on its way to disk at txg sync. What ENCRYPT does depends on the block.",
+   "ends": "The block pointer carries the salt, IV and MAC (or the MAC, or the MAC checksum); CHECKSUM_GENERATE and allocation follow as in the I/O graph's path `zfs-io-flow:txg_sync`. Without a key mapping the write cannot happen, which is why unload-key waits for a txg sync and refuses while datasets are open.",
+   "alts": [
+    {
+     "id": "block",
+     "options": [
+      {
+       "id": "data",
+       "label": "Level-0 block of an encrypted type (file data, directories, dnodes, ZIL, zvol data)"
+      },
+      {
+       "id": "auth",
+       "label": "Level-0 block of an unencrypted type (for example the ZFS master node): authenticated only"
+      },
+      {
+       "id": "objset",
+       "label": "The objset block: two embedded HMACs"
+      },
+      {
+       "id": "indirect",
+       "label": "Indirect block: hash of the children's MACs"
+      }
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "wire": "E044",
+     "when": [
+      {
+       "group": "block",
+       "options": [
+        "data",
+        "auth",
+        "indirect"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E044",
+     "when": [
+      {
+       "group": "block",
+       "options": [
+        "objset"
+       ]
+      }
+     ],
+     "note": "the objset block is written the same way, by dmu_objset_sync()"
+    },
+    {
+     "wire": "E045",
+     "when": [
+      {
+       "group": "block",
+       "options": [
+        "data"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E046",
+     "when": [
+      {
+       "group": "block",
+       "options": [
+        "auth"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E047",
+     "when": [
+      {
+       "group": "block",
+       "options": [
+        "objset"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E048",
+     "when": [
+      {
+       "group": "block",
+       "options": [
+        "indirect"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E053",
+     "when": [
+      {
+       "group": "block",
+       "options": [
+        "indirect"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E038",
+     "when": [
+      {
+       "group": "block",
+       "options": [
+        "data",
+        "auth",
+        "objset"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E039",
+     "when": [
+      {
+       "group": "block",
+       "options": [
+        "data",
+        "auth",
+        "objset"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E049",
+     "when": [
+      {
+       "group": "block",
+       "options": [
+        "data"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E050",
+     "when": [
+      {
+       "group": "block",
+       "options": [
+        "data"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E052",
+     "when": [
+      {
+       "group": "block",
+       "options": [
+        "data"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E041",
+     "when": [
+      {
+       "group": "block",
+       "options": [
+        "auth"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E040",
+     "when": [
+      {
+       "group": "block",
+       "options": [
+        "objset"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E042",
+     "when": [
+      {
+       "group": "block",
+       "options": [
+        "auth",
+        "objset"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E054",
+     "when": [
+      {
+       "group": "block",
+       "options": [
+        "data",
+        "auth",
+        "objset"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E055",
+     "when": [
+      {
+       "group": "block",
+       "options": [
+        "data",
+        "auth",
+        "indirect"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "read",
+   "category": "Data path",
+   "title": "Read a block: decrypt",
+   "summary": "A normal (not raw) read of an encrypted block. The data key is recomputed from the master key and the salt stored in the block pointer.",
+   "ends": "The consumer has plaintext and the ARC header keeps a decrypted copy. With the key unloaded, the key lookup fails with EACCES; a tampered block fails its MAC and returns EIO.",
+   "alts": [
+    {
+     "id": "cache",
+     "options": [
+      {
+       "id": "miss",
+       "label": "ARC miss: decrypted by the read pipeline"
+      },
+      {
+       "id": "rawhdr",
+       "label": "ARC hit on a header that holds only ciphertext: decrypted by the ARC"
+      }
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "wire": "E056"
+    },
+    {
+     "wire": "E057",
+     "when": [
+      {
+       "group": "cache",
+       "options": [
+        "miss"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E058",
+     "when": [
+      {
+       "group": "cache",
+       "options": [
+        "miss"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E059",
+     "when": [
+      {
+       "group": "cache",
+       "options": [
+        "miss"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E060",
+     "when": [
+      {
+       "group": "cache",
+       "options": [
+        "miss"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E063",
+     "when": [
+      {
+       "group": "cache",
+       "options": [
+        "rawhdr"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E064",
+     "when": [
+      {
+       "group": "cache",
+       "options": [
+        "rawhdr"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E038"
+    },
+    {
+     "wire": "E039"
+    },
+    {
+     "wire": "E051"
+    },
+    {
+     "wire": "E052"
+    },
+    {
+     "wire": "E061",
+     "when": [
+      {
+       "group": "cache",
+       "options": [
+        "miss"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E062",
+     "when": [
+      {
+       "group": "cache",
+       "options": [
+        "miss"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E065",
+     "when": [
+      {
+       "group": "cache",
+       "options": [
+        "rawhdr"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E066"
+    }
+   ]
+  },
+  {
+   "id": "change_key",
+   "category": "Key management",
+   "title": "zfs change-key: new wrapping key, no data rewritten",
+   "summary": "A passphrase change, or turning a dataset that inherited its key into a new encryption root. Only the wrapped copies of the master keys are rewritten; every data block stays as it is.",
+   "ends": "The key objects of the dataset and of every descendant under the same encryption root hold the same master keys wrapped with the new key; the old wrapping key is freed from memory and no key object in the pool is wrapped with it any more. A raw send stream made earlier still carries the master key wrapped with the old key.",
+   "alts": [
+    {
+     "id": "target",
+     "options": [
+      {
+       "id": "root",
+       "label": "The dataset is already an encryption root (for example a new passphrase)"
+      },
+      {
+       "id": "child",
+       "label": "The dataset inherited its key and becomes a new encryption root"
+      }
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "wire": "E088"
+    },
+    {
+     "wire": "E003"
+    },
+    {
+     "wire": "E007",
+     "when": [
+      {
+       "group": "target",
+       "options": [
+        "root"
+       ]
+      }
+     ],
+     "note": "keyformat and keylocation default to the current ones"
+    },
+    {
+     "wire": "E007",
+     "when": [
+      {
+       "group": "target",
+       "options": [
+        "child"
+       ]
+      }
+     ],
+     "note": "keyformat is required; keylocation defaults to prompt"
+    },
+    {
+     "wire": "E009"
+    },
+    {
+     "wire": "E010"
+    },
+    {
+     "wire": "E012"
+    },
+    {
+     "wire": "E013"
+    },
+    {
+     "wire": "E021"
+    },
+    {
+     "wire": "E067"
+    },
+    {
+     "wire": "E068"
+    },
+    {
+     "wire": "E070"
+    },
+    {
+     "wire": "E071"
+    },
+    {
+     "wire": "E027"
+    },
+    {
+     "wire": "E072"
+    }
+   ]
+  },
+  {
+   "id": "inherit_key",
+   "category": "Key management",
+   "title": "zfs change-key -i: rejoin the parent's encryption root",
+   "summary": "An encryption root gives up its own key and wraps its master keys (and those of its descendants under it) with the parent's encryption root key.",
+   "ends": "encryptionroot of the dataset and its inheriting descendants is now the parent's encryption root, keylocation is cleared, and loading the parent's root key gives access to all of them.",
+   "alts": [],
+   "steps": [
+    {
+     "wire": "E088"
+    },
+    {
+     "wire": "E003"
+    },
+    {
+     "wire": "E011"
+    },
+    {
+     "wire": "E012"
+    },
+    {
+     "wire": "E013"
+    },
+    {
+     "wire": "E021"
+    },
+    {
+     "wire": "E067"
+    },
+    {
+     "wire": "E068"
+    },
+    {
+     "wire": "E069"
+    },
+    {
+     "wire": "E070"
+    },
+    {
+     "wire": "E071"
+    },
+    {
+     "wire": "E027"
+    },
+    {
+     "wire": "E072"
+    }
+   ]
+  },
+  {
+   "id": "unload_key",
+   "category": "Key management",
+   "title": "Unmount and zfs unload-key",
+   "summary": "Removing the wrapping key from memory. It only succeeds once no dataset under the encryption root still holds a master key.",
+   "ends": "keystatus is `unavailable`. The master keys in memory were zeroed when their last holder went away; the key objects on disk are unchanged.",
+   "alts": [
+    {
+     "id": "how",
+     "options": [
+      {
+       "id": "umount_u",
+       "label": "zfs unmount -u: unmount, then unload"
+      },
+      {
+       "id": "unload",
+       "label": "zfs unload-key on datasets that are already unmounted (fails with EBUSY if one is still mounted)"
+      }
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "wire": "E087"
+    },
+    {
+     "wire": "E004",
+     "when": [
+      {
+       "group": "how",
+       "options": [
+        "umount_u"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E076",
+     "when": [
+      {
+       "group": "how",
+       "options": [
+        "umount_u"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E073",
+     "when": [
+      {
+       "group": "how",
+       "options": [
+        "umount_u"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E074",
+     "when": [
+      {
+       "group": "how",
+       "options": [
+        "umount_u"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E075",
+     "when": [
+      {
+       "group": "how",
+       "options": [
+        "umount_u"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E006",
+     "when": [
+      {
+       "group": "how",
+       "options": [
+        "umount_u"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E002",
+     "when": [
+      {
+       "group": "how",
+       "options": [
+        "unload"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E011"
+    },
+    {
+     "wire": "E012"
+    },
+    {
+     "wire": "E019"
+    },
+    {
+     "wire": "E020"
+    }
+   ]
+  },
+  {
+   "id": "raw_send_recv",
+   "category": "Replication",
+   "title": "Raw send and receive (zfs send -w)",
+   "summary": "Replicating an encrypted dataset without its key: the blocks travel as stored and the master key travels still wrapped.",
+   "ends": "The received dataset is its own encryption root with keystatus `unavailable`; `zfs load-key` with the sender's passphrase or key opens it, because keyformat, pbkdf2salt and pbkdf2iters came along. Neither side decrypted anything. The stream format and receive mechanics are in the send/receive graph: `zfs-send-receive:raw_send` and `zfs-send-receive:raw_recv`.",
+   "alts": [],
+   "steps": [
+    {
+     "wire": "E089"
+    },
+    {
+     "wire": "E077"
+    },
+    {
+     "wire": "E078"
+    },
+    {
+     "wire": "E079"
+    },
+    {
+     "wire": "E080"
+    },
+    {
+     "wire": "E081"
+    },
+    {
+     "wire": "E082"
+    },
+    {
+     "wire": "E083"
+    },
+    {
+     "wire": "E084"
+    },
+    {
+     "wire": "E055"
+    }
+   ]
+  }
+ ],
+ "stages": [],
+ "pipelines": [],
+ "pipelineRuntimeNote": "",
+ "about": {
+  "model": [
+   "There are two layers of keys. Blocks are encrypted with keys derived from a dataset's master key, which is random, never changes and never leaves the kernel unwrapped. The user's key (passphrase, raw or hex) only becomes the 32-byte wrapping key, which encrypts the master key inside the dataset's DSL Crypto Key object in the pool's meta-object set (MOS).",
+   "Because only the wrapped copy of the master key depends on the user's key, `zfs change-key` rewrites a few small key objects in one txg and no data block. The new wrapping key replaces the old one; the master keys stay the same.",
+   "An encryption root is the dataset whose wrapping key is used. A child created without its own key still gets a master key of its own, but wraps it with the root's wrapping key; its key object records the root, and the keystore finds the wrapping key through that record. Snapshots share their dataset's key object and clones share their origin's. `load-key` and `unload-key` act only on encryption roots; `change-key` can turn any dataset that is not a clone into one.",
+   "`zfs load-key` only puts the wrapping key in memory, after proving it by unwrapping the root's master key. A master key is unwrapped when a dataset is opened for decryption (mount, zvol open), and the key mapping created then is what every encrypting or decrypting I/O looks up. `unload-key` fails with EBUSY while any dataset under the root is still open.",
+   "Block encryption happens in the ENCRYPT stage, after compression: AES-GCM or AES-CCM with a random 96-bit IV and a data key derived with HKDF from the master key and a 64-bit salt. A salt (and its key) is shared by many blocks and rotated after a limit. Salt, IV and MAC are stored in the block pointer.",
+   "Not everything is encrypted. The MOS (pool metadata, including the key objects) is not encrypted at all. Inside an encrypted dataset, indirect blocks, the objset block, the core of each dnode and some object types stay readable but are authenticated (HMAC, or a hash of the children's MACs), so the pool can be scrubbed and the dataset raw-sent without keys.",
+   "A raw send (`zfs send -w`) ships the blocks as stored plus the master key still wrapped; the receiver stores both unchanged and can only read the data after `zfs load-key` with the sender's key."
+  ],
+  "simplifications": [
+   "The data paths jump over pipeline stages and the vdev layer drawn in the I/O graph: `dbuf_write()` to ENCRYPT, READ_BP_INIT to DONE and the device read in between are single wires here.",
+   "A sync task's check function runs twice, once in the calling thread and once in syncing context; the diagram draws the check where its effect matters, once.",
+   "Returns are drawn only where a result or error matters; most holds and releases of keys during a single I/O are folded into the lookup wires.",
+   "ZIL encryption (salt and IV chosen at log block allocation, MAC in the log chain header), encrypted dedup and dnode bonus-buffer encryption are described in node text only.",
+   "Snapshots and clones share a key object and are not drawn separately; `zfs promote`, `zfs rename` and the forced change-key commands are left out.",
+   "The crypto back ends (ICP, Linux kernel crypto API, FreeBSD crypto, QAT) are folded into the AES-GCM / AES-CCM node.",
+   "Raw send and receive are reduced to their key data; the stream itself belongs to the send/receive graph."
+  ]
+ },
+ "timelines": [],
+ "page": {
+  "id": "zfs-encryption-keys",
+  "title": "ZFS Encryption Keys",
+  "file": "zfs-encryption-keys.html",
+  "intro": "This spec describes a diagram of OpenZFS native encryption from the key's point of view: which key actually encrypts a block, how a passphrase becomes a wrapping key, how the wrapping key protects each dataset's master key in its DSL Crypto Key object, what `zfs load-key`, `zfs unload-key` and `zfs change-key` do in the kernel, why a passphrase change rewrites no data, what an encryption root is, how blocks are encrypted, decrypted and authenticated in the zio pipeline and the ARC, and what a raw send carries."
+ },
+ "suite": {
+  "pages": [
+   {
+    "id": "zfs-io-flow",
+    "title": "ZFS I/O Flow",
+    "file": "zfs-io-flow.html"
+   },
+   {
+    "id": "zfs-scrub-resilver",
+    "title": "ZFS Scrub, Resilver and Rebuild",
+    "file": "zfs-scrub-resilver.html"
+   },
+   {
+    "id": "zfs-send-receive",
+    "title": "ZFS Send and Receive",
+    "file": "zfs-send-receive.html"
+   },
+   {
+    "id": "zfs-snapshot-lifecycle",
+    "title": "ZFS Snapshots, Destroy and Rollback",
+    "file": "zfs-snapshot-lifecycle.html"
+   },
+   {
+    "id": "zfs-fault-management",
+    "title": "ZFS Fault Management",
+    "file": "zfs-fault-management.html"
+   },
+   {
+    "id": "zfs-encryption-keys",
+    "title": "ZFS Encryption Keys",
+    "file": "zfs-encryption-keys.html"
+   },
+   {
+    "id": "zfs-pool-create",
+    "title": "ZFS Pool Creation",
+    "file": "zfs-pool-create.html"
+   },
+   {
+    "id": "zfs-dataset-create",
+    "title": "ZFS Dataset Creation",
+    "file": "zfs-dataset-create.html"
+   },
+   {
+    "id": "zfs-pool-import-export",
+    "title": "ZFS Pool Import and Export",
+    "file": "zfs-pool-import-export.html"
+   },
+   {
+    "id": "zfs-destroy",
+    "title": "ZFS Destroy Actions",
+    "file": "zfs-destroy.html"
+   }
+  ],
+  "alsoIn": {
+   "admin": [
+    "zfs-scrub-resilver",
+    "zfs-send-receive",
+    "zfs-snapshot-lifecycle",
+    "zfs-fault-management",
+    "zfs-pool-create",
+    "zfs-dataset-create",
+    "zfs-pool-import-export",
+    "zfs-destroy"
+   ],
+   "zfs_cmd": [
+    "zfs-snapshot-lifecycle",
+    "zfs-dataset-create",
+    "zfs-destroy"
+   ],
+   "mount_lib": [
+    "zfs-dataset-create",
+    "zfs-pool-import-export",
+    "zfs-destroy"
+   ],
+   "lzc": [
+    "zfs-dataset-create"
+   ],
+   "ioc_keys": [
+    "zfs-dataset-create"
+   ],
+   "dcp": [
+    "zfs-dataset-create"
+   ],
+   "spa_sync": [
+    "zfs-io-flow",
+    "zfs-scrub-resilver",
+    "zfs-send-receive",
+    "zfs-snapshot-lifecycle",
+    "zfs-fault-management",
+    "zfs-pool-create",
+    "zfs-dataset-create",
+    "zfs-pool-import-export",
+    "zfs-destroy"
+   ],
+   "create_crypt": [
+    "zfs-dataset-create"
+   ],
+   "dbuf_sync": [
+    "zfs-io-flow",
+    "zfs-send-receive"
+   ],
+   "dbuf_read": [
+    "zfs-io-flow"
+   ],
+   "arc_read": [
+    "zfs-io-flow",
+    "zfs-scrub-resilver",
+    "zfs-send-receive"
+   ],
+   "arc_buf": [
+    "zfs-io-flow"
+   ],
+   "st_encrypt": [
+    "zfs-io-flow"
+   ],
+   "st_read_bp_init": [
+    "zfs-io-flow",
+    "zfs-scrub-resilver"
+   ],
+   "st_done": [
+    "zfs-io-flow",
+    "zfs-scrub-resilver",
+    "zfs-fault-management"
+   ]
+  }
+ }
+}

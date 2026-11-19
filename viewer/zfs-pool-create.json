@@ -1,0 +1,5908 @@
+{
+ "meta": {
+  "repo": "https://github.com/openzfs/zfs",
+  "commit": "c913da86156eba3243cc1ef515e98d69887654a7",
+  "version": "2.4.99"
+ },
+ "types": [
+  {
+   "id": "cfg",
+   "color": "#FFD8A8",
+   "name": "Configuration and properties",
+   "desc": "nvlists: the vdev specification, leaf descriptions, the pool config, label contents, pool and file system property lists, feature lists."
+  },
+  {
+   "id": "alloc",
+   "color": "#C59F7B",
+   "name": "Space",
+   "desc": "Metaslab sizing, metaslab classes and groups, space map objects."
+  },
+  {
+   "id": "tx",
+   "color": "#FFD43B",
+   "name": "Transaction",
+   "desc": "The initial txg (TXG_INITIAL = 4): objects created under it, its commit and its sync."
+  },
+  {
+   "id": "bp",
+   "color": "#F783AC",
+   "name": "Block pointer",
+   "desc": "The MOS root block pointer handed to the uberblock."
+  },
+  {
+   "id": "zio",
+   "color": "#4DABF7",
+   "name": "I/O request",
+   "desc": "Label and block writes as zios."
+  },
+  {
+   "id": "bio",
+   "color": "#E9ECEF",
+   "name": "Device I/O",
+   "desc": "What reaches a device: opens, partition table writes, label and block writes."
+  },
+  {
+   "id": "ctl",
+   "color": "#868E96",
+   "name": "Control",
+   "desc": "Calls that carry no configuration: checks, opens, returns, errors, waits. Draw dashed."
+  }
+ ],
+ "contexts": [
+  {
+   "id": "user",
+   "name": "Userspace (`zpool` command, libzfs, libefi, libblkid)"
+  },
+  {
+   "id": "syscall",
+   "name": "Kernel, in the thread of the calling process (an ioctl on /dev/zfs, mount(2) or umount(2)) or a helper thread it starts, outside syncing context and outside any dmu_tx"
+  },
+  {
+   "id": "sync",
+   "name": "Syncing context: txg_sync thread, one txg at a time"
+  },
+  {
+   "id": "thr",
+   "name": "A dedicated kernel thread (the txg sync thread)"
+  },
+  {
+   "id": "any",
+   "name": "Runs in whichever context calls it"
+  },
+  {
+   "id": "hw",
+   "name": "Hardware"
+  }
+ ],
+ "groups": [
+  {
+   "id": "ucmd",
+   "title": "Userspace - zpool create, libzfs",
+   "color": "#5C5F66",
+   "col": 0,
+   "band": "full",
+   "subcols": 2,
+   "summary": "Grammar, checks, disk partitioning, features and the ioctl. Everything that can refuse the disks before the kernel sees them."
+  },
+  {
+   "id": "kentry",
+   "title": "Kernel entry - ioctl",
+   "color": "#2B8A3E",
+   "col": 2,
+   "band": "full",
+   "subcols": 1,
+   "summary": "ZFS_IOC_POOL_CREATE and the root file system properties set afterwards."
+  },
+  {
+   "id": "spa",
+   "title": "SPA - spa_create()",
+   "color": "#0C8599",
+   "col": 3,
+   "band": "full",
+   "subcols": 1,
+   "summary": "The orchestrator: namespace, activation, property checks, rollback and the cache file."
+  },
+  {
+   "id": "vtree",
+   "title": "Vdev tree - parse, open, label",
+   "color": "#C2255C",
+   "col": 4,
+   "band": "full",
+   "subcols": 2,
+   "summary": "nvlist to vdev_t, per-type open and size, first labels, spares and cache devices."
+  },
+  {
+   "id": "alloc",
+   "title": "Space - metaslabs and classes",
+   "color": "#846358",
+   "col": 6,
+   "band": "full",
+   "subcols": 1,
+   "summary": "Metaslab size and count, allocation classes, space maps."
+  },
+  {
+   "id": "dsl",
+   "title": "MOS and root dataset (txg 4)",
+   "color": "#D9480F",
+   "col": 7,
+   "band": "full",
+   "subcols": 2,
+   "summary": "Everything created in memory for the first txg."
+  },
+  {
+   "id": "txg",
+   "title": "First txg sync",
+   "color": "#E67700",
+   "col": 9,
+   "band": "full",
+   "subcols": 2,
+   "summary": "spa_sync() of txg 4: config object, MOS, labels, uberblock."
+  },
+  {
+   "id": "io",
+   "title": "Shared - zio and leaf driver",
+   "color": "#1971C2",
+   "col": 11,
+   "band": "full",
+   "subcols": 1,
+   "summary": "The I/O graph's nodes that carry label and block writes to the devices."
+  },
+  {
+   "id": "dev",
+   "title": "Physical devices",
+   "color": "#495057",
+   "col": 12,
+   "band": "full",
+   "subcols": 1,
+   "summary": "What ends up on each kind of device."
+  }
+ ],
+ "nodes": [
+  {
+   "id": "admin",
+   "group": "ucmd",
+   "sub": 0,
+   "title": "Administrator",
+   "ctx": "user",
+   "src": "",
+   "fns": [],
+   "role": "The person or script typing the command. Every path in this graph that a command starts begins with a wire from this node; the arrows that come back into a command node are its results, errors and refusals.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "zpool_cmd",
+   "group": "ucmd",
+   "sub": 0,
+   "title": "zpool(8) command",
+   "ctx": "user",
+   "src": "cmd/zpool/zpool_main.c",
+   "fns": [
+    {
+     "name": "zpool_do_create",
+     "ref": {
+      "file": "cmd/zpool/zpool_main.c",
+      "line": 1977,
+      "symbol": "zpool_do_create",
+      "code": "zpool_do_create(int argc, char **argv)"
+     }
+    },
+    {
+     "name": "add_prop_list",
+     "ref": {
+      "file": "cmd/zpool/zpool_main.c",
+      "line": 1274,
+      "symbol": "add_prop_list",
+      "code": "add_prop_list(const char *propname, const char *propval, nvlist_t **props,"
+     }
+    }
+   ],
+   "role": "`zpool create` parses the options: `-f` force, `-n` dry run (print the layout, touch nothing), `-d` no features by default, `-o` pool properties and `feature@name=`, `-O` and `-m` root file system properties, `-R` altroot and `-t` temporary name (both default `cachefile=none`). A pool name containing `/` is refused. Hands the vdev arguments to make_root_vdev(), refuses a default mountpoint directory that exists and is not empty, builds the feature list, calls zpool_create() and on success opens, mounts and shares the root file system.",
+   "tunables": [],
+   "props": [
+    {
+     "name": "altroot",
+     "ref": {
+      "file": "module/zcommon/zpool_prop.c",
+      "line": 98,
+      "symbol": "\"altroot\"",
+      "code": "zprop_register_string(ZPOOL_PROP_ALTROOT, \"altroot\", NULL, PROP_DEFAULT,"
+     }
+    }
+   ]
+  },
+  {
+   "id": "vdev_spec",
+   "group": "ucmd",
+   "sub": 0,
+   "title": "make_root_vdev() / construct_spec()",
+   "ctx": "user",
+   "src": "cmd/zpool/zpool_vdev.c",
+   "fns": [
+    {
+     "name": "make_root_vdev",
+     "ref": {
+      "file": "cmd/zpool/zpool_vdev.c",
+      "line": 2171,
+      "symbol": "make_root_vdev",
+      "code": "make_root_vdev(zpool_handle_t *zhp, nvlist_t *props, int force, int check_rep,"
+     }
+    },
+    {
+     "name": "construct_spec",
+     "ref": {
+      "file": "cmd/zpool/zpool_vdev.c",
+      "line": 1650,
+      "symbol": "construct_spec",
+      "code": "construct_spec(nvlist_t *props, int argc, char **argv)"
+     }
+    },
+    {
+     "name": "is_grouping",
+     "ref": {
+      "file": "cmd/zpool/zpool_vdev.c",
+      "line": 1332,
+      "symbol": "is_grouping",
+      "code": "is_grouping(const char *type, int *mindev, int *maxdev)"
+     }
+    },
+    {
+     "name": "get_parity",
+     "ref": {
+      "file": "cmd/zpool/zpool_vdev.c",
+      "line": 1260,
+      "symbol": "get_parity",
+      "code": "get_parity(const char *type)"
+     }
+    },
+    {
+     "name": "draid_config_by_type",
+     "ref": {
+      "file": "cmd/zpool/zpool_vdev.c",
+      "line": 1445,
+      "symbol": "draid_config_by_type",
+      "code": "draid_config_by_type(nvlist_t *nv, const char *type, uint64_t width,"
+     }
+    },
+    {
+     "name": "num_normal_vdevs",
+     "ref": {
+      "file": "cmd/zpool/zpool_vdev.c",
+      "line": 2137,
+      "symbol": "num_normal_vdevs",
+      "code": "num_normal_vdevs(nvlist_t *nvroot)"
+     }
+    }
+   ],
+   "role": "The vdev grammar. `mirror`, `raidz[1-3]`, `draid[p][:Nd][:Nc][:Ns][:Nw]` (and `anymirror`) start a top-level vdev whose children are the following devices up to the next keyword; a bare device is a top-level vdev by itself. `special`, `dedup` and `log` mark the following top-level vdevs with an allocation bias (log accepts only disks and mirrors); `spare` and `cache` start lists that are not top-level vdevs. Each keyword checks its minimum device count. Without `:Nd`, a dRAID group gets at most 8 data disks. `-o ashift=` (9 to 16) is copied into every top-level vdev. At least one normal top-level vdev is required. Then, in order: in-use check, replication check unless `-f`, partitioning unless `-n`.",
+   "tunables": [],
+   "props": [
+    {
+     "name": "ashift",
+     "ref": {
+      "file": "module/zcommon/zpool_prop.c",
+      "line": 185,
+      "symbol": "\"ashift\"",
+      "code": "zprop_register_number(ZPOOL_PROP_ASHIFT, \"ashift\", 0, PROP_DEFAULT,"
+     }
+    }
+   ]
+  },
+  {
+   "id": "leaf_spec",
+   "group": "ucmd",
+   "sub": 0,
+   "title": "make_leaf_vdev()",
+   "ctx": "user",
+   "src": "cmd/zpool/zpool_vdev.c",
+   "fns": [
+    {
+     "name": "make_leaf_vdev",
+     "ref": {
+      "file": "cmd/zpool/zpool_vdev.c",
+      "line": 263,
+      "symbol": "make_leaf_vdev",
+      "code": "make_leaf_vdev(const char *arg, boolean_t is_primary, uint64_t ashift)"
+     }
+    },
+    {
+     "name": "is_shorthand_path",
+     "ref": {
+      "file": "cmd/zpool/zpool_vdev.c",
+      "line": 176,
+      "symbol": "is_shorthand_path",
+      "code": "is_shorthand_path(const char *arg, char *path, size_t path_size,"
+     }
+    },
+    {
+     "name": "check_sector_size_database",
+     "ref": {
+      "file": "cmd/zpool/os/linux/zpool_vdev_os.c",
+      "line": 208,
+      "symbol": "check_sector_size_database",
+      "code": "check_sector_size_database(char *path, int *sector_size)"
+     }
+    }
+   ],
+   "role": "Turns one device argument into a leaf nvlist. A full path keeps the name given (so udev by-id names survive) but is resolved to decide whether it is a whole disk; a short name is looked up in the default device directories. A block device or whole disk becomes type `disk` with `whole_disk` set accordingly, a regular file type `file`; anything else is refused. Without `-o ashift`, drives known to misreport their sector size get an ashift from a built-in table.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "rep_check",
+   "group": "ucmd",
+   "sub": 0,
+   "title": "Replication-level check",
+   "ctx": "user",
+   "src": "cmd/zpool/zpool_vdev.c",
+   "fns": [
+    {
+     "name": "check_replication",
+     "ref": {
+      "file": "cmd/zpool/zpool_vdev.c",
+      "line": 844,
+      "symbol": "check_replication",
+      "code": "check_replication(nvlist_t *config, nvlist_t *newroot)"
+     }
+    },
+    {
+     "name": "get_replication",
+     "ref": {
+      "file": "cmd/zpool/zpool_vdev.c",
+      "line": 582,
+      "symbol": "get_replication",
+      "code": "get_replication(nvlist_t *nvroot, boolean_t fatal,"
+     }
+    },
+    {
+     "name": "rep_consistent",
+     "ref": {
+      "file": "cmd/zpool/zpool_vdev.c",
+      "line": 490,
+      "symbol": "rep_consistent",
+      "code": "rep_consistent(replication_level_t *lastrep, replication_level_t *rep,"
+     }
+    },
+    {
+     "name": "is_bias_more_redundant",
+     "ref": {
+      "file": "cmd/zpool/zpool_vdev.c",
+      "line": 469,
+      "symbol": "is_bias_more_redundant",
+      "code": "is_bias_more_redundant(const replication_level_t *a,"
+     }
+    },
+    {
+     "name": "vdev_error",
+     "ref": {
+      "file": "cmd/zpool/zpool_vdev.c",
+      "line": 81,
+      "symbol": "vdev_error",
+      "code": "vdev_error(const char *fmt, ...)"
+     }
+    }
+   ],
+   "role": "Skipped with `-f`. All normal top-level vdevs must have the same type and redundancy (raidz and dRAID may mix at equal parity; raidz and mirror at equal failure tolerance); a mirror or raidz must not mix files and devices or devices whose sizes differ by more than 16 MiB. Special and dedup vdevs need not match as long as they survive at least as many device failures as the normal vdevs. Log vdevs are not checked.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "inuse_check",
+   "group": "ucmd",
+   "sub": 0,
+   "title": "Device in-use checks",
+   "ctx": "user",
+   "src": "cmd/zpool/zpool_vdev.c",
+   "fns": [
+    {
+     "name": "is_device_in_use",
+     "ref": {
+      "file": "cmd/zpool/zpool_vdev.c",
+      "line": 1186,
+      "symbol": "is_device_in_use",
+      "code": "is_device_in_use(nvlist_t *config, nvlist_t *nv, boolean_t force,"
+     }
+    },
+    {
+     "name": "check_device",
+     "ref": {
+      "file": "cmd/zpool/os/linux/zpool_vdev_os.c",
+      "line": 380,
+      "symbol": "check_device",
+      "code": "check_device(const char *path, boolean_t force,"
+     }
+    },
+    {
+     "name": "check_disk",
+     "ref": {
+      "file": "cmd/zpool/os/linux/zpool_vdev_os.c",
+      "line": 301,
+      "symbol": "check_disk",
+      "code": "check_disk(const char *path, blkid_cache cache, int force,"
+     }
+    },
+    {
+     "name": "check_slice",
+     "ref": {
+      "file": "cmd/zpool/os/linux/zpool_vdev_os.c",
+      "line": 256,
+      "symbol": "check_slice",
+      "code": "check_slice(const char *path, blkid_cache cache, int force, boolean_t isspare)"
+     }
+    },
+    {
+     "name": "check_file_generic",
+     "ref": {
+      "file": "cmd/zpool/zpool_vdev.c",
+      "line": 106,
+      "symbol": "check_file_generic",
+      "code": "check_file_generic(const char *file, boolean_t force, boolean_t isspare)"
+     }
+    }
+   ],
+   "role": "Runs for every leaf, spare and cache device, even with `-f`. A whole disk must open with O_EXCL; its GPT partitions are each probed with libblkid. A ZFS label is checked with zpool_in_use(): a member of an active pool, or a hot spare of another pool (unless this device is also a spare here), can never be used; an exported or possibly active pool, or any other filesystem signature, is refused unless `-f`. A corrupt primary GPT is refused unless `-f`.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "make_disks",
+   "group": "ucmd",
+   "sub": 1,
+   "title": "make_disks(): prepare disks",
+   "ctx": "user",
+   "src": "cmd/zpool/zpool_vdev.c",
+   "fns": [
+    {
+     "name": "make_disks",
+     "ref": {
+      "file": "cmd/zpool/zpool_vdev.c",
+      "line": 1009,
+      "symbol": "make_disks",
+      "code": "make_disks(zpool_handle_t *zhp, nvlist_t *nv, boolean_t replacing)"
+     }
+    },
+    {
+     "name": "zero_label",
+     "ref": {
+      "file": "cmd/zpool/zpool_vdev.c",
+      "line": 957,
+      "symbol": "zero_label",
+      "code": "zero_label(const char *path)"
+     }
+    },
+    {
+     "name": "zpool_prepare_and_label_disk",
+     "ref": {
+      "file": "lib/libzfs/libzfs_util.c",
+      "line": 2514,
+      "symbol": "zpool_prepare_and_label_disk",
+      "code": "zpool_prepare_and_label_disk(libzfs_handle_t *hdl, zpool_handle_t *zhp,"
+     }
+    }
+   ],
+   "role": "Skipped with `-n`. A disk leaf that is a partition only has its first 4 KiB zeroed (unless it is a spare). A whole disk (not held open exclusively as an existing spare) is relabelled: the udev partition link is removed, the zfs_prepare_disk script runs, a GPT is written, `zpool` waits for udev to recreate the `-part1` link, zeroes its first 4 KiB, and from then on the leaf's path names partition 1. Files are left alone.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "efi_label",
+   "group": "ucmd",
+   "sub": 1,
+   "title": "zpool_label_disk(): GPT",
+   "ctx": "user",
+   "src": "lib/libzfs/os/linux/libzfs_pool_os.c",
+   "fns": [
+    {
+     "name": "zpool_label_disk",
+     "ref": {
+      "file": "lib/libzfs/os/linux/libzfs_pool_os.c",
+      "line": 201,
+      "symbol": "zpool_label_disk",
+      "code": "zpool_label_disk(libzfs_handle_t *hdl, zpool_handle_t *zhp, const char *name)"
+     }
+    },
+    {
+     "name": "zpool_label_name",
+     "ref": {
+      "file": "lib/libzfs/os/linux/libzfs_pool_os.c",
+      "line": 177,
+      "symbol": "zpool_label_name",
+      "code": "zpool_label_name(char *label_name, int label_size)"
+     }
+    },
+    {
+     "name": "zpool_label_disk_check",
+     "ref": {
+      "file": "lib/libzfs/os/linux/libzfs_pool_os.c",
+      "line": 146,
+      "symbol": "zpool_label_disk_check",
+      "code": "zpool_label_disk_check(char *path)"
+     }
+    }
+   ],
+   "role": "Writes a new GPT with libefi. Partition 1 (type V_USR, name `zfs-` plus 16 random hex digits) starts at 1 MiB and runs to the end of the disk less 8 MiB, rounded down to a 2048-sector boundary; partition 9 is an 8 MiB reserved partition after it. The same byte offsets are used on 512-byte and 4K-sector disks. A partition under 64 MiB fails. The label is read back and checked after udev settles.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "features_compat",
+   "group": "ucmd",
+   "sub": 1,
+   "title": "Feature set and compatibility",
+   "ctx": "user",
+   "src": "cmd/zpool/zpool_main.c",
+   "fns": [
+    {
+     "name": "zpool_do_load_compat",
+     "ref": {
+      "file": "cmd/zpool/zpool_main.c",
+      "line": 14308,
+      "symbol": "zpool_do_load_compat",
+      "code": "zpool_do_load_compat(const char *compat, boolean_t *list)"
+     }
+    },
+    {
+     "name": "zpool_load_compat",
+     "ref": {
+      "file": "lib/libzfs/libzfs_pool.c",
+      "line": 5823,
+      "symbol": "zpool_load_compat",
+      "code": "zpool_load_compat(const char *compat, boolean_t *features, char *report,"
+     }
+    }
+   ],
+   "role": "Reads the `compatibility` property: unset, empty or `off` means every feature, `legacy` none, otherwise the features present in all of the named files (from /etc/zfs/compatibility.d or /usr/share/zfs/compatibility.d). Unknown names in an /etc file are an error. `zpool_do_create()` then enables every feature the kernel module supports that the set allows, unless `-d` or `-o version` below 5000; `-o feature@x=disabled` removes one, and enabling one outside the set only warns.",
+   "tunables": [],
+   "props": [
+    {
+     "name": "compatibility",
+     "ref": {
+      "file": "module/zcommon/zpool_prop.c",
+      "line": 108,
+      "symbol": "\"compatibility\"",
+      "code": "zprop_register_string(ZPOOL_PROP_COMPATIBILITY, \"compatibility\","
+     }
+    }
+   ]
+  },
+  {
+   "id": "libzfs",
+   "group": "ucmd",
+   "sub": 1,
+   "title": "libzfs / libzfs_core",
+   "ctx": "user",
+   "src": "lib/libzfs/libzfs_pool.c",
+   "fns": [
+    {
+     "name": "zpool_create",
+     "ref": {
+      "file": "lib/libzfs/libzfs_pool.c",
+      "line": 1598,
+      "symbol": "zpool_create",
+      "code": "zpool_create(libzfs_handle_t *hdl, const char *pool, nvlist_t *nvroot,"
+     }
+    },
+    {
+     "name": "zpool_valid_proplist",
+     "ref": {
+      "file": "lib/libzfs/libzfs_pool.c",
+      "line": 577,
+      "symbol": "zpool_valid_proplist",
+      "code": "zpool_valid_proplist(libzfs_handle_t *hdl, const char *poolname,"
+     }
+    },
+    {
+     "name": "zpool_create_error_from_info",
+     "ref": {
+      "file": "lib/libzfs/libzfs_pool.c",
+      "line": 1564,
+      "symbol": "zpool_create_error_from_info",
+      "code": "zpool_create_error_from_info(libzfs_handle_t *hdl, zfs_cmd_t *zc)"
+     }
+    },
+    {
+     "name": "zpool_standard_error_fmt",
+     "ref": {
+      "file": "lib/libzfs/libzfs_util.c",
+      "line": 644,
+      "symbol": "zpool_standard_error_fmt",
+      "code": "zpool_standard_error_fmt(libzfs_handle_t *hdl, int error, const char *fmt, ...)"
+     }
+    },
+    {
+     "name": "zfs_ioctl",
+     "ref": {
+      "file": "lib/libzfs/libzfs_util.c",
+      "line": 794,
+      "symbol": "zfs_ioctl",
+      "code": "zfs_ioctl(libzfs_handle_t *hdl, int request, zfs_cmd_t *zc)"
+     }
+    }
+   ],
+   "role": "zpool_create() checks the pool name and property values (`feature@` values become the number 0), validates the `-O` properties as file system properties and, for `-O encryption`, prepares the wrapping key. Packs the vdev tree, the pool properties (with the root file system properties nested inside) into a zfs_cmd_t and issues ZFS_IOC_POOL_CREATE directly, not through libzfs_core. Turns errors into messages, using the device and pool names the kernel returns for EBUSY and ENXIO.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "ioc_pool_create",
+   "group": "kentry",
+   "sub": 0,
+   "title": "zfs_ioc_pool_create()",
+   "ctx": "syscall",
+   "src": "module/zfs/zfs_ioctl.c",
+   "fns": [
+    {
+     "name": "zfs_ioc_pool_create",
+     "ref": {
+      "file": "module/zfs/zfs_ioctl.c",
+      "line": 1691,
+      "symbol": "zfs_ioc_pool_create",
+      "code": "zfs_ioc_pool_create(zfs_cmd_t *zc)"
+     }
+    },
+    {
+     "name": "zfs_fill_zplprops_root",
+     "ref": {
+      "file": "module/zfs/zfs_ioctl.c",
+      "line": 3938,
+      "symbol": "zfs_fill_zplprops_root",
+      "code": "zfs_fill_zplprops_root(uint64_t spa_vers, nvlist_t *createprops,"
+     }
+    },
+    {
+     "name": "spa_destroy",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 8175,
+      "symbol": "spa_destroy",
+      "code": "spa_destroy(const char *pool)"
+     }
+    }
+   ],
+   "role": "Kernel entry for ZFS_IOC_POOL_CREATE. Unpacks the config and properties, rejects an unsupported `version`, separates the root file system properties, builds the encryption parameters and the ZPL creation properties (normalization, utf8only, casesensitivity, ZPL version) for the root dataset, and calls spa_create(). Afterwards sets the remaining root properties; if that fails, spa_destroy() removes the new pool again and the ioctl returns the error.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "set_props",
+   "group": "kentry",
+   "sub": 0,
+   "title": "zfs_set_prop_nvlist()",
+   "ctx": "syscall",
+   "src": "module/zfs/zfs_ioctl.c",
+   "fns": [
+    {
+     "name": "zfs_set_prop_nvlist",
+     "ref": {
+      "file": "module/zfs/zfs_ioctl.c",
+      "line": 3129,
+      "symbol": "zfs_set_prop_nvlist",
+      "code": "zfs_set_prop_nvlist(const char *dsname, zprop_source_t source, nvlist_t *nvl,"
+     }
+    }
+   ],
+   "role": "After the pool exists, the `-O` and `-m` properties are set on the root dataset with source local, as `zfs set` would.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "spa_create",
+   "group": "spa",
+   "sub": 0,
+   "title": "spa_create()",
+   "ctx": "syscall",
+   "src": "module/zfs/spa.c",
+   "fns": [
+    {
+     "name": "spa_create",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 7290,
+      "symbol": "spa_create",
+      "code": "spa_create(const char *pool, nvlist_t *nvroot, nvlist_t *props,"
+     }
+    },
+    {
+     "name": "spa_create_check_encryption_params",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 7275,
+      "symbol": "spa_create_check_encryption_params",
+      "code": "spa_create_check_encryption_params(dsl_crypto_params_t *dcp,"
+     }
+    }
+   ],
+   "role": "Builds a pool from nothing while holding the namespace lock. In order: name check and spa_t, activation, property and encryption checks (special or dedup vdevs need `feature@allocation_classes`), vdev tree parse, create (open and label), dRAID spares and their feature gates, aux devices, metaslabs; then the DSL pool, dedup and BRT tables, the pool objects and properties for txg 4, feature refcounts for dRAID and AnyRAID; then it starts the txg threads, waits for txg 4 to sync, writes the cache file and returns. The version is SPA_VERSION (5000, feature flags) unless `-o version` was given without features.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "spa_ns",
+   "group": "spa",
+   "sub": 0,
+   "title": "SPA namespace",
+   "ctx": "syscall",
+   "src": "module/zfs/spa_misc.c",
+   "fns": [
+    {
+     "name": "spa_lookup",
+     "ref": {
+      "file": "module/zfs/spa_misc.c",
+      "line": 757,
+      "symbol": "spa_lookup",
+      "code": "spa_lookup(const char *name)"
+     }
+    },
+    {
+     "name": "spa_add",
+     "ref": {
+      "file": "module/zfs/spa_misc.c",
+      "line": 814,
+      "symbol": "spa_add",
+      "code": "spa_add(const char *name, nvlist_t *config, const char *altroot)"
+     }
+    },
+    {
+     "name": "spa_namespace_enter",
+     "ref": {
+      "file": "module/zfs/spa_misc.c",
+      "line": 656,
+      "symbol": "spa_namespace_enter",
+      "code": "spa_namespace_enter(const void *tag)"
+     }
+    },
+    {
+     "name": "spa_namespace_exit",
+     "ref": {
+      "file": "module/zfs/spa_misc.c",
+      "line": 680,
+      "symbol": "spa_namespace_exit",
+      "code": "spa_namespace_exit(const void *tag)"
+     }
+    }
+   ],
+   "role": "The system-wide table of pools. spa_create() holds its lock from the name check to the end, so no other pool operation runs meanwhile. spa_add() creates the in-memory spa_t with the altroot and a cache file entry for /etc/zfs/zpool.cache (none when an altroot is set).",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "spa_activate",
+   "group": "spa",
+   "sub": 0,
+   "title": "spa_activate()",
+   "ctx": "syscall",
+   "src": "module/zfs/spa.c",
+   "fns": [
+    {
+     "name": "spa_activate",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 1810,
+      "symbol": "spa_activate",
+      "code": "spa_activate(spa_t *spa, spa_mode_t mode)"
+     }
+    },
+    {
+     "name": "spa_create_zio_taskqs",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 1722,
+      "symbol": "spa_create_zio_taskqs",
+      "code": "spa_create_zio_taskqs(spa_t *spa)"
+     }
+    },
+    {
+     "name": "metaslab_class_create",
+     "ref": {
+      "file": "module/zfs/metaslab.c",
+      "line": 431,
+      "symbol": "metaslab_class_create",
+      "code": "metaslab_class_create(spa_t *spa, const char *name,"
+     }
+    }
+   ],
+   "role": "Makes the spa_t usable: state ACTIVE, the six metaslab classes (normal, log, embedded_log, special, special_embedded_log, dedup), the zio taskqs and the per-txg lists.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "prop_validate",
+   "group": "spa",
+   "sub": 0,
+   "title": "spa_prop_validate()",
+   "ctx": "syscall",
+   "src": "module/zfs/spa.c",
+   "fns": [
+    {
+     "name": "spa_prop_validate",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 731,
+      "symbol": "spa_prop_validate",
+      "code": "spa_prop_validate(spa_t *spa, nvlist_t *props)"
+     }
+    }
+   ],
+   "role": "Checks each pool property: `feature@` names must be known features with value 0, `version` must not be combined with features, booleans 0 or 1, `cachefile` an absolute path, empty or `none`, `multihost` needs a host id, `comment` must be printable.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "spa_unload",
+   "group": "spa",
+   "sub": 0,
+   "title": "spa_unload()",
+   "ctx": "syscall",
+   "src": "module/zfs/spa.c",
+   "fns": [
+    {
+     "name": "spa_unload",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 2317,
+      "symbol": "spa_unload",
+      "code": "spa_unload(spa_t *spa)"
+     }
+    },
+    {
+     "name": "spa_deactivate",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 1941,
+      "symbol": "spa_deactivate",
+      "code": "spa_deactivate(spa_t *spa)"
+     }
+    },
+    {
+     "name": "spa_remove",
+     "ref": {
+      "file": "module/zfs/spa_misc.c",
+      "line": 956,
+      "symbol": "spa_remove",
+      "code": "spa_remove(spa_t *spa)"
+     }
+    }
+   ],
+   "role": "Any error inside spa_create() unwinds what exists so far: spa_unload() closes and frees the vdev tree (once there is one), spa_deactivate() frees classes and taskqs, spa_remove() takes the name out of the namespace. Nothing reaches the cache file. Labels already written stay on disk, but with pool txg 0 they do not describe an importable pool.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "cachefile",
+   "group": "spa",
+   "sub": 0,
+   "title": "Pool cache file (zpool.cache)",
+   "ctx": "syscall",
+   "src": "module/zfs/spa_config.c",
+   "fns": [
+    {
+     "name": "spa_write_cachefile",
+     "ref": {
+      "file": "module/zfs/spa_config.c",
+      "line": 142,
+      "symbol": "spa_write_cachefile",
+      "code": "spa_write_cachefile(spa_t *target, boolean_t removing, boolean_t postsysevent,"
+     }
+    },
+    {
+     "name": "spa_config_write",
+     "ref": {
+      "file": "module/zfs/spa_config.c",
+      "line": 85,
+      "symbol": "spa_config_write",
+      "code": "spa_config_write(spa_config_dirent_t *dp, nvlist_t *nvl)"
+     }
+    }
+   ],
+   "role": "After txg 4 has synced, writes the config of every pool that uses the same cache file into it (default /etc/zfs/zpool.cache), truncating and rewriting in place with O_SYNC. Nothing is written for `cachefile=none` or an altroot without a cache file. Posts a config sync sysevent and udev change events for the new devices. Failures are retried asynchronously.",
+   "tunables": [
+    {
+     "name": "spa_config_path",
+     "ref": {
+      "file": "module/zfs/spa_config.c",
+      "line": 536,
+      "symbol": "config_path",
+      "code": "ZFS_MODULE_PARAM(zfs_spa, spa_, config_path, STRING, ZMOD_RD,"
+     }
+    }
+   ],
+   "props": [
+    {
+     "name": "cachefile",
+     "ref": {
+      "file": "module/zcommon/zpool_prop.c",
+      "line": 102,
+      "symbol": "\"cachefile\"",
+      "code": "zprop_register_string(ZPOOL_PROP_CACHEFILE, \"cachefile\", NULL,"
+     }
+    }
+   ]
+  },
+  {
+   "id": "config_parse",
+   "group": "vtree",
+   "sub": 0,
+   "title": "spa_config_parse()",
+   "ctx": "syscall",
+   "src": "module/zfs/spa.c",
+   "fns": [
+    {
+     "name": "spa_config_parse",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 2064,
+      "symbol": "spa_config_parse",
+      "code": "spa_config_parse(spa_t *spa, vdev_t **vdp, nvlist_t *nv, vdev_t *parent,"
+     }
+    }
+   ],
+   "role": "Recursive walk of the nvlist: one vdev_alloc() per nvlist, then its ZPOOL_CONFIG_CHILDREN. It follows only `children`: the `spares` and `l2cache` arrays beside them are not parsed into the tree. Holds every config lock (SCL_ALL) as writer.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "vdev_alloc",
+   "group": "vtree",
+   "sub": 0,
+   "title": "vdev_alloc()",
+   "ctx": "syscall",
+   "src": "module/zfs/vdev.c",
+   "fns": [
+    {
+     "name": "vdev_alloc",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 839,
+      "symbol": "vdev_alloc",
+      "code": "vdev_alloc(spa_t *spa, vdev_t **vdp, nvlist_t *nv, vdev_t *parent, uint_t id,"
+     }
+    },
+    {
+     "name": "vdev_getops",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 282,
+      "symbol": "vdev_getops",
+      "code": "vdev_getops(const char *type)"
+     }
+    },
+    {
+     "name": "vdev_alloc_common",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 715,
+      "symbol": "vdev_alloc_common",
+      "code": "vdev_alloc_common(spa_t *spa, uint_t id, uint64_t guid, vdev_ops_t *ops)"
+     }
+    },
+    {
+     "name": "vdev_derive_alloc_bias",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 327,
+      "symbol": "vdev_derive_alloc_bias",
+      "code": "vdev_derive_alloc_bias(const char *bias)"
+     }
+    },
+    {
+     "name": "vdev_add_child",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 589,
+      "symbol": "vdev_add_child",
+      "code": "vdev_add_child(vdev_t *pvd, vdev_t *cvd)"
+     }
+    }
+   ],
+   "role": "Creates one vdev_t: picks the ops vector by type (root, mirror, raidz, draid, disk, file, anymirror ...), runs the type's init hook, assigns a random guid (the root vdev's guid becomes the pool guid; others are unique within the pool), records path, devid, whole_disk and the requested ashift, sets the allocation bias of a top-level vdev from its nvlist and `vdev_islog` for log vdevs, and links it to its parent.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "vdev_create",
+   "group": "vtree",
+   "sub": 0,
+   "title": "vdev_create()",
+   "ctx": "syscall",
+   "src": "module/zfs/vdev.c",
+   "fns": [
+    {
+     "name": "vdev_create",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 3056,
+      "symbol": "vdev_create",
+      "code": "vdev_create(vdev_t *vd, uint64_t txg, boolean_t isreplacing)"
+     }
+    }
+   ],
+   "role": "Opens the whole tree and labels it. Unlike an import, a create allows no partial open: every vdev must come up HEALTHY.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "vdev_open",
+   "group": "vtree",
+   "sub": 0,
+   "title": "vdev_open() / vdev_reopen()",
+   "ctx": "any",
+   "src": "module/zfs/vdev.c",
+   "fns": [
+    {
+     "name": "vdev_open",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 2216,
+      "symbol": "vdev_open",
+      "code": "vdev_open(vdev_t *vd, cred_t *cred)"
+     }
+    },
+    {
+     "name": "vdev_ashift_optimize",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 2186,
+      "symbol": "vdev_ashift_optimize",
+      "code": "vdev_ashift_optimize(vdev_t *vd)"
+     }
+    },
+    {
+     "name": "vdev_open_children",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 2128,
+      "symbol": "vdev_open_children",
+      "code": "vdev_open_children(vdev_t *vd, cred_t *cred)"
+     }
+    }
+   ],
+   "role": "Calls the type's open, which for interior vdevs opens the children first. A leaf below 64 MiB fails with EOVERFLOW. Usable size (asize) is the device size less 4 MiB in front (two labels plus the 3.5 MiB boot area) and 512 KiB at the end. On the first open of a top-level vdev, ashift is the requested value or else the logical ashift, raised toward the physical ashift (up to zfs_vdev_max_auto_ashift, at least zfs_vdev_min_auto_ashift) by vdev_ashift_optimize(); it is fixed from then on. Each leaf is probed with label-area reads (vdev_probe()) before the open succeeds.",
+   "tunables": [
+    {
+     "name": "zfs_vdev_min_auto_ashift",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 7409,
+      "symbol": "min_auto_ashift",
+      "code": "ZFS_MODULE_PARAM_CALL(zfs_vdev, zfs_vdev_, min_auto_ashift,"
+     }
+    },
+    {
+     "name": "zfs_vdev_max_auto_ashift",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 7413,
+      "symbol": "max_auto_ashift",
+      "code": "ZFS_MODULE_PARAM_CALL(zfs_vdev, zfs_vdev_, max_auto_ashift,"
+     }
+    }
+   ],
+   "props": []
+  },
+  {
+   "id": "label_init",
+   "group": "vtree",
+   "sub": 0,
+   "title": "vdev_label_init(): first labels",
+   "ctx": "syscall",
+   "src": "module/zfs/vdev_label.c",
+   "fns": [
+    {
+     "name": "vdev_label_init",
+     "ref": {
+      "file": "module/zfs/vdev_label.c",
+      "line": 1154,
+      "symbol": "vdev_label_init",
+      "code": "vdev_label_init(vdev_t *vd, uint64_t crtxg, vdev_labeltype_t reason)"
+     }
+    },
+    {
+     "name": "vdev_inuse",
+     "ref": {
+      "file": "module/zfs/vdev_label.c",
+      "line": 976,
+      "symbol": "vdev_inuse",
+      "code": "vdev_inuse(vdev_t *vd, uint64_t crtxg, vdev_labeltype_t reason,"
+     }
+    },
+    {
+     "name": "vdev_aux_label_generate",
+     "ref": {
+      "file": "module/zfs/vdev_label.c",
+      "line": 1105,
+      "symbol": "vdev_aux_label_generate",
+      "code": "vdev_aux_label_generate(vdev_t *vd, boolean_t reason_spare)"
+     }
+    },
+    {
+     "name": "spa_config_generate",
+     "ref": {
+      "file": "module/zfs/spa_config.c",
+      "line": 314,
+      "symbol": "spa_config_generate",
+      "code": "spa_config_generate(spa_t *spa, vdev_t *vd, uint64_t txg, int getstats)"
+     }
+    }
+   ],
+   "role": "Walks the tree leaf by leaf, deliberately one at a time. Reads any existing label: one of an active pool, of a spare or cache device, or one written moments ago by this same create (the same disk listed twice) means EBUSY, with the device and the pool it belongs to recorded for the error message. Otherwise writes all four labels: the config of the pool and of this leaf's top-level vdev marked as pool txg 0 (not yet a real pool) with create_txg 4, a zeroed bootenv area, and an uberblock ring holding only a template with txg 0. Spares and cache devices get a short aux label instead.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "vdev_mirror",
+   "group": "vtree",
+   "sub": 1,
+   "title": "Mirror vdev",
+   "ctx": "any",
+   "src": "module/zfs/vdev_mirror.c",
+   "fns": [
+    {
+     "name": "vdev_mirror_open",
+     "ref": {
+      "file": "module/zfs/vdev_mirror.c",
+      "line": 361,
+      "symbol": "vdev_mirror_open",
+      "code": "vdev_mirror_open(vdev_t *vd, uint64_t *asize, uint64_t *max_asize,"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. At create, opening a mirror opens each side; its size is that of the smallest side and its logical ashift the largest of the sides. All sides must open, as for every create.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "vdev_raidz",
+   "group": "vtree",
+   "sub": 1,
+   "title": "RAIDZ / dRAID vdev",
+   "ctx": "any",
+   "src": "module/zfs/vdev_raidz.c",
+   "fns": [
+    {
+     "name": "vdev_raidz_init",
+     "ref": {
+      "file": "module/zfs/vdev_raidz.c",
+      "line": 5618,
+      "symbol": "vdev_raidz_init",
+      "code": "vdev_raidz_init(spa_t *spa, nvlist_t *nv, void **tsd)"
+     }
+    },
+    {
+     "name": "vdev_raidz_open",
+     "ref": {
+      "file": "module/zfs/vdev_raidz.c",
+      "line": 2218,
+      "symbol": "vdev_raidz_open",
+      "code": "vdev_raidz_open(vdev_t *vd, uint64_t *asize, uint64_t *max_asize,"
+     }
+    },
+    {
+     "name": "vdev_draid_init",
+     "ref": {
+      "file": "module/zfs/vdev_draid.c",
+      "line": 2427,
+      "symbol": "vdev_draid_init",
+      "code": "vdev_draid_init(spa_t *spa, nvlist_t *nv, void **tsd)"
+     }
+    },
+    {
+     "name": "vdev_draid_open",
+     "ref": {
+      "file": "module/zfs/vdev_draid.c",
+      "line": 1694,
+      "symbol": "vdev_draid_open",
+      "code": "vdev_draid_open(vdev_t *vd, uint64_t *asize, uint64_t *max_asize,"
+     }
+    },
+    {
+     "name": "vdev_draid_metaslab_init",
+     "ref": {
+      "file": "module/zfs/vdev_draid.c",
+      "line": 1841,
+      "symbol": "vdev_draid_metaslab_init",
+      "code": "vdev_draid_metaslab_init(vdev_t *vd, uint64_t *ms_start, uint64_t *ms_size)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. raidz: init reads the parity (1 to 3); open needs at least parity + 1 children, and the size is the smallest child times the number of children, parity included. dRAID: init reads data disks, parity, distributed spares and groups and builds the permuted mapping of groups to children; open opens the data children, then the distributed spares, and sizes the vdev as the smallest child less a 32 MiB reserve, times the children that are not spares, rounded down to whole groups. Each dRAID metaslab is aligned to the group width.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "draid_spares",
+   "group": "vtree",
+   "sub": 1,
+   "title": "dRAID distributed spares",
+   "ctx": "syscall",
+   "src": "module/zfs/vdev_draid.c",
+   "fns": [
+    {
+     "name": "vdev_draid_spare_create",
+     "ref": {
+      "file": "module/zfs/vdev_draid.c",
+      "line": 1864,
+      "symbol": "vdev_draid_spare_create",
+      "code": "vdev_draid_spare_create(nvlist_t *nvroot, vdev_t *vd, uint64_t *ndraidp,"
+     }
+    }
+   ],
+   "role": "For every distributed spare of every dRAID top-level vdev, appends a leaf nvlist of type `dspare` named `draid<parity>-<vdev id>-<spare id>` to the pool's spare list. From here on they are ordinary hot spares in the aux list, backed by space reserved on every child of their dRAID. Counts dRAID vdevs (and those with failure groups) for the feature checks.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "aux_validate",
+   "group": "vtree",
+   "sub": 1,
+   "title": "spa_validate_aux()",
+   "ctx": "syscall",
+   "src": "module/zfs/spa.c",
+   "fns": [
+    {
+     "name": "spa_validate_aux",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 7189,
+      "symbol": "spa_validate_aux",
+      "code": "spa_validate_aux(spa_t *spa, nvlist_t *nvroot, uint64_t crtxg, int mode)"
+     }
+    },
+    {
+     "name": "spa_validate_aux_devs",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 7120,
+      "symbol": "spa_validate_aux_devs",
+      "code": "spa_validate_aux_devs(spa_t *spa, nvlist_t *nvroot, uint64_t crtxg, int mode,"
+     }
+    }
+   ],
+   "role": "Checks the `spares` and then the `l2cache` arrays: each entry must parse as a single leaf, which is made its own top-level vdev, opened and given an aux label; its new guid is written back into the nvlist and the temporary vdev_t is freed. At create any failure aborts.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "aux_load",
+   "group": "vtree",
+   "sub": 1,
+   "title": "Spare and cache lists (sav)",
+   "ctx": "syscall",
+   "src": "module/zfs/spa.c",
+   "fns": [
+    {
+     "name": "spa_load_spares",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 2488,
+      "symbol": "spa_load_spares",
+      "code": "spa_load_spares(spa_t *spa)"
+     }
+    },
+    {
+     "name": "spa_load_l2cache",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 2618,
+      "symbol": "spa_load_l2cache",
+      "code": "spa_load_l2cache(spa_t *spa)"
+     }
+    },
+    {
+     "name": "spa_spare_add",
+     "ref": {
+      "file": "module/zfs/spa_misc.c",
+      "line": 1247,
+      "symbol": "spa_spare_add",
+      "code": "spa_spare_add(vdev_t *vd)"
+     }
+    },
+    {
+     "name": "spa_l2cache_add",
+     "ref": {
+      "file": "module/zfs/spa_misc.c",
+      "line": 1300,
+      "symbol": "spa_l2cache_add",
+      "code": "spa_l2cache_add(vdev_t *vd)"
+     }
+    },
+    {
+     "name": "l2arc_add_vdev",
+     "ref": {
+      "file": "module/zfs/arc.c",
+      "line": 10471,
+      "symbol": "l2arc_add_vdev",
+      "code": "l2arc_add_vdev(spa_t *spa, vdev_t *vd)"
+     }
+    }
+   ],
+   "role": "Builds the pool's auxiliary vdev lists from the nvlist: each spare and cache device becomes a standalone vdev_t (not part of the root vdev's tree), is opened, and is registered system-wide by guid so other pools see it as a spare or cache device. Cache devices join the L2ARC. The lists are marked to be written to the MOS in the first sync.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "ms_size",
+   "group": "alloc",
+   "sub": 0,
+   "title": "vdev_metaslab_set_size()",
+   "ctx": "syscall",
+   "src": "module/zfs/vdev.c",
+   "fns": [
+    {
+     "name": "vdev_metaslab_set_size",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 3086,
+      "symbol": "vdev_metaslab_set_size",
+      "code": "vdev_metaslab_set_size(vdev_t *vd)"
+     }
+    }
+   ],
+   "role": "Chooses the metaslab size of a top-level vdev from its asize: aim for zfs_vdev_default_ms_count (200) metaslabs of at least 2^zfs_vdev_default_ms_shift (512 MiB), at least zfs_vdev_min_ms_count (16) metaslabs, at most 2^zfs_vdev_max_ms_shift (16 GiB) each until zfs_vdev_ms_count_limit (131072) would be exceeded, never below 16 MiB. Roughly: under 8 GB about 16 metaslabs, 8 to 100 GB one per 512 MiB, 100 GB to 3 TB about 200, larger ones 16 GiB each.",
+   "tunables": [
+    {
+     "name": "zfs_vdev_default_ms_count",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 7359,
+      "symbol": "default_ms_count",
+      "code": "ZFS_MODULE_PARAM(zfs_vdev, zfs_vdev_, default_ms_count, UINT, ZMOD_RW,"
+     }
+    },
+    {
+     "name": "zfs_vdev_min_ms_count",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 7368,
+      "symbol": "min_ms_count",
+      "code": "ZFS_MODULE_PARAM(zfs_vdev, zfs_vdev_, min_ms_count, UINT, ZMOD_RW,"
+     }
+    },
+    {
+     "name": "zfs_vdev_ms_count_limit",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 7371,
+      "symbol": "ms_count_limit",
+      "code": "ZFS_MODULE_PARAM(zfs_vdev, zfs_vdev_, ms_count_limit, UINT, ZMOD_RW,"
+     }
+    },
+    {
+     "name": "zfs_vdev_default_ms_shift",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 7362,
+      "symbol": "default_ms_shift",
+      "code": "ZFS_MODULE_PARAM(zfs_vdev, zfs_vdev_, default_ms_shift, UINT, ZMOD_RW,"
+     }
+    },
+    {
+     "name": "zfs_vdev_max_ms_shift",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 7365,
+      "symbol": "max_ms_shift",
+      "code": "ZFS_MODULE_PARAM(zfs_vdev, zfs_vdev_, max_ms_shift, UINT, ZMOD_RW,"
+     }
+    }
+   ],
+   "props": []
+  },
+  {
+   "id": "ms_init",
+   "group": "alloc",
+   "sub": 0,
+   "title": "vdev_expand() / vdev_metaslab_init()",
+   "ctx": "syscall",
+   "src": "module/zfs/vdev.c",
+   "fns": [
+    {
+     "name": "vdev_expand",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 6040,
+      "symbol": "vdev_expand",
+      "code": "vdev_expand(vdev_t *vd, uint64_t txg)"
+     }
+    },
+    {
+     "name": "vdev_metaslab_init",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 1663,
+      "symbol": "vdev_metaslab_init",
+      "code": "vdev_metaslab_init(vdev_t *vd, uint64_t txg)"
+     }
+    },
+    {
+     "name": "metaslab_init",
+     "ref": {
+      "file": "module/zfs/metaslab.c",
+      "line": 2932,
+      "symbol": "metaslab_init",
+      "code": "metaslab_init(metaslab_group_t *mg, uint64_t id, uint64_t object,"
+     }
+    }
+   ],
+   "role": "For each top-level vdev: sets the deflate ratio, creates its metaslab groups and asize >> ms_shift metaslab_t structures, each marked dirty for txg 4 (space maps do not exist yet), and marks the vdev's config dirty so its labels are rewritten in the first sync. On a normal or special vdev with more than zfs_embedded_slog_min_ms (64) metaslabs, the emptiest metaslab is moved to the embedded log group, reserved for ZIL blocks.",
+   "tunables": [
+    {
+     "name": "zfs_embedded_slog_min_ms",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 7406,
+      "symbol": "embedded_slog_min_ms",
+      "code": "ZFS_MODULE_PARAM(zfs, zfs_, embedded_slog_min_ms, UINT, ZMOD_RW,"
+     }
+    }
+   ],
+   "props": []
+  },
+  {
+   "id": "classes",
+   "group": "alloc",
+   "sub": 0,
+   "title": "Metaslab classes and groups",
+   "ctx": "any",
+   "src": "module/zfs/metaslab.c",
+   "fns": [
+    {
+     "name": "metaslab_group_create",
+     "ref": {
+      "file": "module/zfs/metaslab.c",
+      "line": 1089,
+      "symbol": "metaslab_group_create",
+      "code": "metaslab_group_create(metaslab_class_t *mc, vdev_t *vd)"
+     }
+    },
+    {
+     "name": "vdev_metaslab_group_create",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 1584,
+      "symbol": "vdev_metaslab_group_create",
+      "code": "vdev_metaslab_group_create(vdev_t *vd)"
+     }
+    },
+    {
+     "name": "spa_normal_class",
+     "ref": {
+      "file": "module/zfs/spa_misc.c",
+      "line": 2183,
+      "symbol": "spa_normal_class",
+      "code": "spa_normal_class(spa_t *spa)"
+     }
+    },
+    {
+     "name": "spa_special_class",
+     "ref": {
+      "file": "module/zfs/spa_misc.c",
+      "line": 2201,
+      "symbol": "spa_special_class",
+      "code": "spa_special_class(spa_t *spa)"
+     }
+    },
+    {
+     "name": "spa_dedup_class",
+     "ref": {
+      "file": "module/zfs/spa_misc.c",
+      "line": 2213,
+      "symbol": "spa_dedup_class",
+      "code": "spa_dedup_class(spa_t *spa)"
+     }
+    },
+    {
+     "name": "spa_log_class",
+     "ref": {
+      "file": "module/zfs/spa_misc.c",
+      "line": 2189,
+      "symbol": "spa_log_class",
+      "code": "spa_log_class(spa_t *spa)"
+     }
+    },
+    {
+     "name": "spa_embedded_log_class",
+     "ref": {
+      "file": "module/zfs/spa_misc.c",
+      "line": 2195,
+      "symbol": "spa_embedded_log_class",
+      "code": "spa_embedded_log_class(spa_t *spa)"
+     }
+    }
+   ],
+   "role": "Where a top-level vdev's space is offered. Its metaslab group joins the class of its allocation bias: log, special, dedup, or normal for everything else. Normal and dedup vdevs also get a group in the embedded log class, special vdevs one in the special embedded log class; log vdevs have only their log group. The pool's minimum and maximum ashift are tracked over normal-class vdevs only.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "space_map",
+   "group": "alloc",
+   "sub": 0,
+   "title": "Space maps (metaslab_sync)",
+   "ctx": "sync",
+   "src": "module/zfs/metaslab.c",
+   "fns": [
+    {
+     "name": "vdev_sync",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 4409,
+      "symbol": "vdev_sync",
+      "code": "vdev_sync(vdev_t *vd, uint64_t txg)"
+     }
+    },
+    {
+     "name": "metaslab_sync",
+     "ref": {
+      "file": "module/zfs/metaslab.c",
+      "line": 4347,
+      "symbol": "metaslab_sync",
+      "code": "metaslab_sync(metaslab_t *msp, uint64_t txg)"
+     }
+    },
+    {
+     "name": "space_map_alloc",
+     "ref": {
+      "file": "module/zfs/space_map.c",
+      "line": 903,
+      "symbol": "space_map_alloc",
+      "code": "space_map_alloc(objset_t *os, int blocksize, dmu_tx_t *tx)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. In the first sync, vdev_sync() gives each new top-level vdev its metaslab array object in the MOS, and metaslab_sync() creates a space map object for each metaslab, stores its object number in that array and logs the allocations made in this txg.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "dsl_pool_create",
+   "group": "dsl",
+   "sub": 0,
+   "title": "dsl_pool_create(): the MOS",
+   "ctx": "syscall",
+   "src": "module/zfs/dsl_pool.c",
+   "fns": [
+    {
+     "name": "dsl_pool_create",
+     "ref": {
+      "file": "module/zfs/dsl_pool.c",
+      "line": 475,
+      "symbol": "dsl_pool_create",
+      "code": "dsl_pool_create(spa_t *spa, nvlist_t *zplprops __attribute__((unused)),"
+     }
+    },
+    {
+     "name": "dsl_pool_open_impl",
+     "ref": {
+      "file": "module/zfs/dsl_pool.c",
+      "line": 180,
+      "symbol": "dsl_pool_open_impl",
+      "code": "dsl_pool_open_impl(spa_t *spa, uint64_t txg)"
+     }
+    },
+    {
+     "name": "dmu_objset_create_impl",
+     "ref": {
+      "file": "module/zfs/dmu_objset.c",
+      "line": 1159,
+      "symbol": "dmu_objset_create_impl",
+      "code": "dmu_objset_create_impl(spa_t *spa, dsl_dataset_t *ds, blkptr_t *bp,"
+     }
+    },
+    {
+     "name": "dmu_tx_create_assigned",
+     "ref": {
+      "file": "module/zfs/dmu_tx.c",
+      "line": 81,
+      "symbol": "dmu_tx_create_assigned",
+      "code": "dmu_tx_create_assigned(struct dsl_pool *dp, uint64_t txg)"
+     }
+    }
+   ],
+   "role": "Creates the DSL pool and, under a transaction assigned to txg 4, the meta-object set: an empty objset of type META whose root block pointer the first uberblock will point at. Then the pool directory, scan state, the special directories, feature objects and the root dataset.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "special_dirs",
+   "group": "dsl",
+   "sub": 0,
+   "title": "Root, $MOS, $FREE, $ORIGIN",
+   "ctx": "syscall",
+   "src": "module/zfs/dsl_dir.c",
+   "fns": [
+    {
+     "name": "dsl_dir_create_sync",
+     "ref": {
+      "file": "module/zfs/dsl_dir.c",
+      "line": 943,
+      "symbol": "dsl_dir_create_sync",
+      "code": "dsl_dir_create_sync(dsl_pool_t *dp, dsl_dir_t *pds, const char *name,"
+     }
+    },
+    {
+     "name": "dsl_pool_open_special_dir",
+     "ref": {
+      "file": "module/zfs/dsl_pool.c",
+      "line": 165,
+      "symbol": "dsl_pool_open_special_dir",
+      "code": "dsl_pool_open_special_dir(dsl_pool_t *dp, const char *name, dsl_dir_t **ddp)"
+     }
+    },
+    {
+     "name": "dsl_pool_create_origin",
+     "ref": {
+      "file": "module/zfs/dsl_pool.c",
+      "line": 1263,
+      "symbol": "dsl_pool_create_origin",
+      "code": "dsl_pool_create_origin(dsl_pool_t *dp, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "bpobj_alloc",
+     "ref": {
+      "file": "module/zfs/bpobj.c",
+      "line": 69,
+      "symbol": "bpobj_alloc",
+      "code": "bpobj_alloc(objset_t *os, int blocksize, dmu_tx_t *tx)"
+     }
+    }
+   ],
+   "role": "Object 1 of the MOS becomes the pool directory ZAP. The root dsl_dir is created (it carries the pool's name in the namespace), then `$MOS` (accounts the MOS's own space), `$FREE` with the pool-wide free bpobj, and `$ORIGIN` with its `$ORIGIN@$ORIGIN` snapshot, the origin of every clone-less dataset.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "root_ds",
+   "group": "dsl",
+   "sub": 0,
+   "title": "Root dataset and file system",
+   "ctx": "syscall",
+   "src": "module/zfs/dsl_dataset.c",
+   "fns": [
+    {
+     "name": "dsl_dataset_create_sync_dd",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 1188,
+      "symbol": "dsl_dataset_create_sync_dd",
+      "code": "dsl_dataset_create_sync_dd(dsl_dir_t *dd, dsl_dataset_t *origin,"
+     }
+    },
+    {
+     "name": "zfs_create_fs",
+     "ref": {
+      "file": "module/os/linux/zfs/zfs_znode_os.c",
+      "line": 1970,
+      "symbol": "zfs_create_fs",
+      "code": "zfs_create_fs(objset_t *os, cred_t *cr, nvlist_t *zplprops, dmu_tx_t *tx)"
+     }
+    }
+   ],
+   "role": "The dataset named like the pool: a dsl_dataset under the root dsl_dir, its objset (type ZFS), and the ZPL objects inside it: master node with the ZPL version and creation properties, system attribute tables, the unlinked set and the root directory znode. With `-O encryption` it also gets its crypto key (page `zfs-encryption-keys`).",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "feat_obj",
+   "group": "dsl",
+   "sub": 1,
+   "title": "Feature ZAPs and refcounts",
+   "ctx": "any",
+   "src": "module/zfs/zfeature.c",
+   "fns": [
+    {
+     "name": "spa_feature_create_zap_objects",
+     "ref": {
+      "file": "module/zfs/zfeature.c",
+      "line": 434,
+      "symbol": "spa_feature_create_zap_objects",
+      "code": "spa_feature_create_zap_objects(spa_t *spa, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "spa_feature_enable",
+     "ref": {
+      "file": "module/zfs/zfeature.c",
+      "line": 458,
+      "symbol": "spa_feature_enable",
+      "code": "spa_feature_enable(spa_t *spa, spa_feature_t fid, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "feature_enable_sync",
+     "ref": {
+      "file": "module/zfs/zfeature.c",
+      "line": 330,
+      "symbol": "feature_enable_sync",
+      "code": "feature_enable_sync(spa_t *spa, zfeature_info_t *feature, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "spa_feature_incr",
+     "ref": {
+      "file": "module/zfs/zfeature.c",
+      "line": 466,
+      "symbol": "spa_feature_incr",
+      "code": "spa_feature_incr(spa_t *spa, spa_feature_t fid, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "spa_activate_allocation_classes",
+     "ref": {
+      "file": "module/zfs/spa_misc.c",
+      "line": 1847,
+      "symbol": "spa_activate_allocation_classes",
+      "code": "spa_activate_allocation_classes(spa_t *spa, dmu_tx_t *tx)"
+     }
+    }
+   ],
+   "role": "Three MOS ZAPs list features for read, for write and their descriptions. Enabling a feature records it with refcount 0 (enabled, not active) and enables the features it depends on. A feature becomes active when its refcount rises: dRAID and AnyRAID at create, allocation_classes when a special or dedup vdev's ZAP is built in the first sync, others (avz_v2, log_spacemap ...) when first used. Only active features restrict which software can import the pool.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "pool_dir",
+   "group": "dsl",
+   "sub": 1,
+   "title": "Pool directory objects",
+   "ctx": "syscall",
+   "src": "module/zfs/spa_history.c",
+   "fns": [
+    {
+     "name": "spa_history_create_obj",
+     "ref": {
+      "file": "module/zfs/spa_history.c",
+      "line": 75,
+      "symbol": "spa_history_create_obj",
+      "code": "spa_history_create_obj(spa_t *spa, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "spa_history_log_version",
+     "ref": {
+      "file": "module/zfs/spa_history.c",
+      "line": 607,
+      "symbol": "spa_history_log_version",
+      "code": "spa_history_log_version(spa_t *spa, const char *operation, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "ddt_create",
+     "ref": {
+      "file": "module/zfs/ddt.c",
+      "line": 1801,
+      "symbol": "ddt_create",
+      "code": "ddt_create(spa_t *spa)"
+     }
+    },
+    {
+     "name": "brt_create",
+     "ref": {
+      "file": "module/zfs/brt.c",
+      "line": 1638,
+      "symbol": "brt_create",
+      "code": "brt_create(spa_t *spa)"
+     }
+    }
+   ],
+   "role": "Entries spa_create() adds to the pool directory under txg 4: the pool history object (with a first \"create\" record of the software version), the config object that the first sync fills, the creation version, the deflate flag, and the deferred-free bpobj. Also sets up the in-memory dedup and block-cloning tables (their objects appear only when first used) and a random checksum salt.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "pool_props",
+   "group": "dsl",
+   "sub": 1,
+   "title": "Pool properties",
+   "ctx": "syscall",
+   "src": "module/zfs/spa.c",
+   "fns": [
+    {
+     "name": "spa_sync_props",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 10851,
+      "symbol": "spa_sync_props",
+      "code": "spa_sync_props(void *arg, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "spa_configfile_set",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 956,
+      "symbol": "spa_configfile_set",
+      "code": "spa_configfile_set(spa_t *spa, nvlist_t *nvp, boolean_t need_sync)"
+     }
+    }
+   ],
+   "role": "Sets in-memory defaults, records the cache file choice, then applies the `-o` properties under txg 4: `feature@` entries enable features, `altroot`, `cachefile` and `readonly` are not stored, `comment` and `compatibility` go into the config, and the rest (including `ashift` and `autoexpand`) are stored in the pool properties ZAP. The `ashift` property itself does not set any vdev's ashift: zpool already copied it into each top-level vdev.",
+   "tunables": [],
+   "props": [
+    {
+     "name": "ashift",
+     "ref": {
+      "file": "module/zcommon/zpool_prop.c",
+      "line": 185,
+      "symbol": "\"ashift\"",
+      "code": "zprop_register_number(ZPOOL_PROP_ASHIFT, \"ashift\", 0, PROP_DEFAULT,"
+     }
+    },
+    {
+     "name": "autoexpand",
+     "ref": {
+      "file": "module/zcommon/zpool_prop.c",
+      "line": 202,
+      "symbol": "\"autoexpand\"",
+      "code": "zprop_register_index(ZPOOL_PROP_AUTOEXPAND, \"autoexpand\", 0,"
+     }
+    },
+    {
+     "name": "cachefile",
+     "ref": {
+      "file": "module/zcommon/zpool_prop.c",
+      "line": 102,
+      "symbol": "\"cachefile\"",
+      "code": "zprop_register_string(ZPOOL_PROP_CACHEFILE, \"cachefile\", NULL,"
+     }
+    },
+    {
+     "name": "compatibility",
+     "ref": {
+      "file": "module/zcommon/zpool_prop.c",
+      "line": 108,
+      "symbol": "\"compatibility\"",
+      "code": "zprop_register_string(ZPOOL_PROP_COMPATIBILITY, \"compatibility\","
+     }
+    }
+   ]
+  },
+  {
+   "id": "txg_sync",
+   "group": "txg",
+   "sub": 0,
+   "title": "TXG: syncing (txg_sync_thread)",
+   "ctx": "thr",
+   "src": "module/zfs/txg.c",
+   "fns": [
+    {
+     "name": "txg_sync_thread",
+     "ref": {
+      "file": "module/zfs/txg.c",
+      "line": 510,
+      "symbol": "txg_sync_thread",
+      "code": "txg_sync_thread(void *arg)"
+     }
+    },
+    {
+     "name": "txg_sync_start",
+     "ref": {
+      "file": "module/zfs/txg.c",
+      "line": 188,
+      "symbol": "txg_sync_start",
+      "code": "txg_sync_start(dsl_pool_t *dp)"
+     }
+    },
+    {
+     "name": "txg_wait_synced",
+     "ref": {
+      "file": "module/zfs/txg.c",
+      "line": 764,
+      "symbol": "txg_wait_synced",
+      "code": "txg_wait_synced(dsl_pool_t *dp, uint64_t txg)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. spa_create() starts the quiesce and sync threads only after it has built txg 4 in memory, then waits in txg_wait_synced() until txg 4 is on disk.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "spa_sync",
+   "group": "txg",
+   "sub": 0,
+   "title": "spa_sync()",
+   "ctx": "sync",
+   "src": "module/zfs/spa.c",
+   "fns": [
+    {
+     "name": "spa_sync",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 11405,
+      "symbol": "spa_sync",
+      "code": "spa_sync(spa_t *spa, uint64_t txg)"
+     }
+    },
+    {
+     "name": "spa_sync_iterate_to_convergence",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 11192,
+      "symbol": "spa_sync_iterate_to_convergence",
+      "code": "spa_sync_iterate_to_convergence(spa_t *spa, dmu_tx_t *tx)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. Syncs txg 4, the pool's first: config object, aux lists, every dirty dataset and the MOS, then vdev_sync() for the new top-level vdevs. Creating space maps dirties the MOS again, so the passes repeat until nothing is dirty; then the labels and uberblock are written.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "dsl_pool_sync",
+   "group": "txg",
+   "sub": 0,
+   "title": "dsl_pool_sync()",
+   "ctx": "sync",
+   "src": "module/zfs/dsl_pool.c",
+   "fns": [
+    {
+     "name": "dsl_pool_sync",
+     "ref": {
+      "file": "module/zfs/dsl_pool.c",
+      "line": 700,
+      "symbol": "dsl_pool_sync",
+      "code": "dsl_pool_sync(dsl_pool_t *dp, uint64_t txg)"
+     }
+    },
+    {
+     "name": "dsl_pool_sync_mos",
+     "ref": {
+      "file": "module/zfs/dsl_pool.c",
+      "line": 579,
+      "symbol": "dsl_pool_sync_mos",
+      "code": "dsl_pool_sync_mos(dsl_pool_t *dp, dmu_tx_t *tx)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. Writes the dirty datasets of txg 4 (the root dataset and `$ORIGIN`), then the MOS, and hands the MOS root block pointer to the uberblock.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "config_obj",
+   "group": "txg",
+   "sub": 1,
+   "title": "Config object, vdev ZAPs, aux lists",
+   "ctx": "sync",
+   "src": "module/zfs/spa.c",
+   "fns": [
+    {
+     "name": "spa_sync_config_object",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 10714,
+      "symbol": "spa_sync_config_object",
+      "code": "spa_sync_config_object(spa_t *spa, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "spa_sync_aux_dev",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 10640,
+      "symbol": "spa_sync_aux_dev",
+      "code": "spa_sync_aux_dev(spa_t *spa, spa_aux_vdev_t *sav, dmu_tx_t *tx,"
+     }
+    },
+    {
+     "name": "vdev_construct_zaps",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 3763,
+      "symbol": "vdev_construct_zaps",
+      "code": "vdev_construct_zaps(vdev_t *vd, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "vdev_zap_allocation_data",
+     "ref": {
+      "file": "module/zfs/vdev.c",
+      "line": 3715,
+      "symbol": "vdev_zap_allocation_data",
+      "code": "vdev_zap_allocation_data(vdev_t *vd, dmu_tx_t *tx)"
+     }
+    }
+   ],
+   "role": "Because the vdevs are config-dirty, the first pass creates the all-vdev ZAP and a ZAP for every leaf, top-level vdev and the root, stores each top-level vdev's allocation bias in its ZAP, generates the full pool config for txg 4 and writes it into the config object (it also becomes the in-memory config used for the cache file). With spares or cache devices, their lists are written as separate packed nvlist objects.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "uberblock",
+   "group": "txg",
+   "sub": 1,
+   "title": "Uberblock + label update",
+   "ctx": "sync",
+   "src": "module/zfs/vdev_label.c",
+   "fns": [
+    {
+     "name": "spa_sync_rewrite_vdev_config",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 11355,
+      "symbol": "spa_sync_rewrite_vdev_config",
+      "code": "spa_sync_rewrite_vdev_config(spa_t *spa, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "vdev_config_sync",
+     "ref": {
+      "file": "module/zfs/vdev_label.c",
+      "line": 2243,
+      "symbol": "vdev_config_sync",
+      "code": "vdev_config_sync(spa_t *spa, vdev_t **svd, int svdcount, uint64_t txg,"
+     }
+    },
+    {
+     "name": "uberblock_update",
+     "ref": {
+      "file": "module/zfs/uberblock.c",
+      "line": 39,
+      "symbol": "uberblock_update",
+      "code": "uberblock_update(uberblock_t *ub, vdev_t *rvd, uint64_t txg, uint64_t mmp_delay)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. The commit point of the new pool. Every top-level vdev is on the config-dirty list, so all of them get new labels. uberblock_update() fills in txg 4, the guid sum of the tree, the time and the MOS root block pointer; until it lands on disk the provisional labels say pool txg 0 and nothing is importable.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "vdev_label",
+   "group": "txg",
+   "sub": 1,
+   "title": "Label / uberblock writer",
+   "ctx": "sync",
+   "src": "module/zfs/vdev_label.c",
+   "fns": [
+    {
+     "name": "vdev_label_sync_list",
+     "ref": {
+      "file": "module/zfs/vdev_label.c",
+      "line": 2163,
+      "symbol": "vdev_label_sync_list",
+      "code": "vdev_label_sync_list(spa_t *spa, int l, uint64_t txg, int flags)"
+     }
+    },
+    {
+     "name": "vdev_uberblock_sync_list",
+     "ref": {
+      "file": "module/zfs/vdev_label.c",
+      "line": 1935,
+      "symbol": "vdev_uberblock_sync_list",
+      "code": "vdev_uberblock_sync_list(spa_t *spa, vdev_t **svd, int svdcount,"
+     }
+    },
+    {
+     "name": "vdev_label_write",
+     "ref": {
+      "file": "module/zfs/vdev_label.c",
+      "line": 205,
+      "symbol": "vdev_label_write",
+      "code": "vdev_label_write(zio_t *zio, vdev_t *vd, int l, abd_t *buf, uint64_t offset,"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. Order: flush caches, even labels L0 and L2 with the real config, flush, uberblock written into the ring of every label, flush, odd labels L1 and L3, flush. Spare and cache devices keep their aux labels.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "zio_create",
+   "group": "io",
+   "sub": 0,
+   "title": "zio create + execute",
+   "ctx": "any",
+   "src": "module/zfs/zio.c",
+   "fns": [
+    {
+     "name": "zio_write_phys",
+     "ref": {
+      "file": "module/zfs/zio.c",
+      "line": 1590,
+      "symbol": "zio_write_phys",
+      "code": "zio_write_phys(zio_t *pio, vdev_t *vd, uint64_t offset, uint64_t size,"
+     }
+    },
+    {
+     "name": "zio_root",
+     "ref": {
+      "file": "module/zfs/zio.c",
+      "line": 1093,
+      "symbol": "zio_root",
+      "code": "zio_root(spa_t *spa, zio_done_func_t *done, void *private, zio_flag_t flags)"
+     }
+    },
+    {
+     "name": "zio_wait",
+     "ref": {
+      "file": "module/zfs/zio.c",
+      "line": 2841,
+      "symbol": "zio_wait",
+      "code": "zio_wait(zio_t *zio)"
+     }
+    },
+    {
+     "name": "zio_flush",
+     "ref": {
+      "file": "module/zfs/zio.c",
+      "line": 1778,
+      "symbol": "zio_flush",
+      "code": "zio_flush(zio_t *pio, vdev_t *vd)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. Label writes are physical zios at fixed offsets under a root zio that the caller waits for; MOS and dataset blocks are ordinary write zios. Both pass the pipeline and the per-disk queue drawn in the I/O graph.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "vdev_leaf",
+   "group": "io",
+   "sub": 0,
+   "title": "Leaf vdev driver",
+   "ctx": "any",
+   "src": "module/os/linux/zfs/vdev_disk.c",
+   "fns": [
+    {
+     "name": "vdev_disk_open",
+     "ref": {
+      "file": "module/os/linux/zfs/vdev_disk.c",
+      "line": 298,
+      "symbol": "vdev_disk_open",
+      "code": "vdev_disk_open(vdev_t *v, uint64_t *psize, uint64_t *max_psize,"
+     }
+    },
+    {
+     "name": "vdev_file_open",
+     "ref": {
+      "file": "module/zfs/vdev_file.c",
+      "line": 90,
+      "symbol": "vdev_file_open",
+      "code": "vdev_file_open(vdev_t *vd, uint64_t *psize, uint64_t *max_psize,"
+     }
+    },
+    {
+     "name": "vdev_disk_io_start",
+     "ref": {
+      "file": "module/os/linux/zfs/vdev_disk.c",
+      "line": 1241,
+      "symbol": "vdev_disk_io_start",
+      "code": "vdev_disk_io_start(zio_t *zio)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. Opening a leaf: a disk is opened by its configured path as a block device with ZFS as exclusive holder (retrying briefly while udev recreates links), and reports capacity, logical and physical block size, write cache, TRIM support and whether it is rotational. A file vdev opens a regular file and reports 512-byte sectors unless the vdev_file tunables say otherwise. Writes are then submitted as block I/O.",
+   "tunables": [
+    {
+     "name": "vdev_file_logical_ashift",
+     "ref": {
+      "file": "module/zfs/vdev_file.c",
+      "line": 366,
+      "symbol": "logical_ashift",
+      "code": "ZFS_MODULE_PARAM(zfs_vdev_file, vdev_file_, logical_ashift, UINT, ZMOD_RW,"
+     }
+    },
+    {
+     "name": "vdev_file_physical_ashift",
+     "ref": {
+      "file": "module/zfs/vdev_file.c",
+      "line": 368,
+      "symbol": "physical_ashift",
+      "code": "ZFS_MODULE_PARAM(zfs_vdev_file, vdev_file_, physical_ashift, UINT, ZMOD_RW,"
+     }
+    }
+   ],
+   "props": []
+  },
+  {
+   "id": "dev_gpt",
+   "group": "dev",
+   "sub": 0,
+   "title": "GPT partition table",
+   "ctx": "hw",
+   "src": "",
+   "fns": [],
+   "role": "The partition table at the start and end of a whole disk. After `zpool create` on Linux: partition 1 for ZFS, partition 9 reserved (8 MiB). Read by the in-use checks, written by zpool_label_disk().",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "dev_normal",
+   "group": "dev",
+   "sub": 0,
+   "title": "Data disks (normal class)",
+   "ctx": "hw",
+   "src": "",
+   "fns": [],
+   "role": "Shared with the I/O flow graph. The leaves of the normal top-level vdevs (or regular files for file vdevs). After the first txg they hold the MOS, the root dataset and the space maps, and without a special vdev all of the pool's metadata.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "dev_special",
+   "group": "dev",
+   "sub": 0,
+   "title": "Special vdev",
+   "ctx": "hw",
+   "src": "",
+   "fns": [],
+   "role": "Shared with the I/O flow graph. With a special vdev, the metadata of the first txg normally lands here.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "dev_dedup",
+   "group": "dev",
+   "sub": 0,
+   "title": "Dedup vdev",
+   "ctx": "hw",
+   "src": "",
+   "fns": [],
+   "role": "Shared with the I/O flow graph. Holds only labels and space maps after create; dedup tables appear when dedup is first used.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "dev_slog",
+   "group": "dev",
+   "sub": 0,
+   "title": "SLOG (log class)",
+   "ctx": "hw",
+   "src": "",
+   "fns": [],
+   "role": "Shared with the I/O flow graph. A log vdev gets labels and metaslabs but no data at create; the ZIL writes there later.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "dev_l2arc",
+   "group": "dev",
+   "sub": 0,
+   "title": "Cache device (L2ARC)",
+   "ctx": "hw",
+   "src": "",
+   "fns": [],
+   "role": "Shared with the I/O flow graph. Carries only an aux label naming it a cache device (no pool guid, no vdev tree); the L2ARC feed fills it later.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "dev_spare",
+   "group": "dev",
+   "sub": 0,
+   "title": "Hot spare disk",
+   "ctx": "hw",
+   "src": "",
+   "fns": [],
+   "role": "A disk in the pool's spare list. It carries only an aux label (state spare, its guid, no pool guid), may be shared by several pools, and is attached in place of a failed disk later (page `zfs-fault-management`).",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "dev_labels",
+   "group": "dev",
+   "sub": 0,
+   "title": "Labels L0-L3 + uberblock ring",
+   "ctx": "hw",
+   "src": "",
+   "fns": [],
+   "role": "Shared with the I/O flow graph. Four 256 KiB labels per leaf: L0 and L1 in the first 512 KiB, L2 and L3 in the last 512 KiB, each with the pool and top-level vdev config and a ring of uberblocks. After create: first the provisional set (pool txg 0), then the real config and the uberblock of txg 4.",
+   "tunables": [],
+   "props": []
+  }
+ ],
+ "wires": [
+  {
+   "id": "E001",
+   "from": "zpool_cmd",
+   "to": "vdev_spec",
+   "type": "cfg",
+   "label": "zpool_do_create(): make_root_vdev() on the vdev arguments, with replication checks unless -f",
+   "refs": [
+    {
+     "file": "cmd/zpool/zpool_main.c",
+     "line": 2134,
+     "symbol": "make_root_vdev",
+     "code": "nvroot = make_root_vdev(NULL, props, force, !force, B_FALSE, dryrun,"
+    }
+   ]
+  },
+  {
+   "id": "E002",
+   "from": "vdev_spec",
+   "to": "leaf_spec",
+   "type": "cfg",
+   "label": "construct_spec(): is_grouping() recognises keywords; make_leaf_vdev() for each device",
+   "refs": [
+    {
+     "file": "cmd/zpool/zpool_vdev.c",
+     "line": 1701,
+     "symbol": "is_grouping",
+     "code": "if ((type = is_grouping(fulltype, &mindev, &maxdev)) != NULL) {"
+    },
+    {
+     "file": "cmd/zpool/zpool_vdev.c",
+     "line": 1819,
+     "symbol": "make_leaf_vdev",
+     "code": "if ((nv = make_leaf_vdev(argv[c],"
+    }
+   ]
+  },
+  {
+   "id": "E003",
+   "from": "leaf_spec",
+   "to": "vdev_spec",
+   "type": "cfg",
+   "label": "leaf nvlist: type disk or file, path, whole_disk, and ashift when given or known for the drive",
+   "refs": [
+    {
+     "file": "cmd/zpool/zpool_vdev.c",
+     "line": 363,
+     "symbol": "ZPOOL_CONFIG_TYPE",
+     "code": "verify(nvlist_add_string(vdev, ZPOOL_CONFIG_TYPE, type) == 0);"
+    },
+    {
+     "file": "cmd/zpool/zpool_vdev.c",
+     "line": 385,
+     "symbol": "ZPOOL_CONFIG_ASHIFT",
+     "code": "(void) nvlist_add_uint64(vdev, ZPOOL_CONFIG_ASHIFT, ashift);"
+    }
+   ]
+  },
+  {
+   "id": "E004",
+   "from": "vdev_spec",
+   "to": "inuse_check",
+   "type": "ctl",
+   "label": "make_root_vdev(): is_device_in_use() on every leaf, spare and cache device, even with -f",
+   "refs": [
+    {
+     "file": "cmd/zpool/zpool_vdev.c",
+     "line": 2197,
+     "symbol": "is_device_in_use",
+     "code": "if (is_device_in_use(poolconfig, newroot, force, replacing, B_FALSE)) {"
+    }
+   ]
+  },
+  {
+   "id": "E005",
+   "from": "inuse_check",
+   "to": "dev_gpt",
+   "type": "ctl",
+   "label": "check_device() -> check_disk(): exclusive open, efi_alloc_and_read(), check_slice() of each partition",
+   "refs": [
+    {
+     "file": "cmd/zpool/zpool_vdev.c",
+     "line": 1225,
+     "symbol": "check_device",
+     "code": "ret = check_device(path, force, isspare, wholedisk);"
+    },
+    {
+     "file": "cmd/zpool/os/linux/zpool_vdev_os.c",
+     "line": 329,
+     "symbol": "efi_alloc_and_read",
+     "code": "err = efi_alloc_and_read(fd, &vtoc);"
+    },
+    {
+     "file": "cmd/zpool/os/linux/zpool_vdev_os.c",
+     "line": 368,
+     "symbol": "check_slice",
+     "code": "err = check_slice(slice_path, cache, force, isspare);"
+    }
+   ]
+  },
+  {
+   "id": "E006",
+   "from": "vdev_spec",
+   "to": "rep_check",
+   "type": "ctl",
+   "label": "check_replication() of the new spec (not called with -f)",
+   "refs": [
+    {
+     "file": "cmd/zpool/zpool_vdev.c",
+     "line": 2207,
+     "symbol": "check_replication",
+     "code": "if (check_rep && check_replication(poolconfig, newroot) != 0) {"
+    }
+   ]
+  },
+  {
+   "id": "E007",
+   "from": "vdev_spec",
+   "to": "make_disks",
+   "type": "cfg",
+   "label": "make_disks() unless -n: every disk leaf, spare and cache device is prepared",
+   "refs": [
+    {
+     "file": "cmd/zpool/zpool_vdev.c",
+     "line": 2225,
+     "symbol": "make_disks",
+     "code": "if (!dryrun && make_disks(zhp, newroot, replacing) != 0) {"
+    }
+   ]
+  },
+  {
+   "id": "E008",
+   "from": "make_disks",
+   "to": "efi_label",
+   "type": "ctl",
+   "label": "whole disk: zpool_prepare_and_label_disk() runs the zfs_prepare_disk script, then zpool_label_disk()",
+   "refs": [
+    {
+     "file": "cmd/zpool/zpool_vdev.c",
+     "line": 1111,
+     "symbol": "zpool_prepare_and_label_disk",
+     "code": "if (zpool_prepare_and_label_disk(g_zfs, zhp, devnode,"
+    },
+    {
+     "file": "lib/libzfs/libzfs_util.c",
+     "line": 2528,
+     "symbol": "zpool_label_disk",
+     "code": "rc = zpool_label_disk(hdl, zhp, name);"
+    }
+   ]
+  },
+  {
+   "id": "E009",
+   "from": "efi_label",
+   "to": "dev_gpt",
+   "type": "bio",
+   "label": "efi_alloc_and_init(); partition 1 named by zpool_label_name() from 1 MiB, reserved partition 9 of 8 MiB; efi_write(); efi_rescan()",
+   "refs": [
+    {
+     "file": "lib/libzfs/os/linux/libzfs_pool_os.c",
+     "line": 241,
+     "symbol": "efi_alloc_and_init",
+     "code": "if (efi_alloc_and_init(fd, EFI_NUMPAR, &vtoc) != 0) {"
+    },
+    {
+     "file": "lib/libzfs/os/linux/libzfs_pool_os.c",
+     "line": 302,
+     "symbol": "zpool_label_name",
+     "code": "zpool_label_name(vtoc->efi_parts[0].p_name, EFI_PART_NAME_LEN);"
+    },
+    {
+     "file": "lib/libzfs/os/linux/libzfs_pool_os.c",
+     "line": 308,
+     "symbol": "efi_write",
+     "code": "rval = efi_write(fd, vtoc);"
+    },
+    {
+     "file": "lib/libzfs/os/linux/libzfs_pool_os.c",
+     "line": 315,
+     "symbol": "efi_rescan",
+     "code": "rval = efi_rescan(fd);"
+    }
+   ]
+  },
+  {
+   "id": "E010",
+   "from": "make_disks",
+   "to": "dev_normal",
+   "type": "bio",
+   "label": "zpool_label_disk_wait() for the partition link, then zero_label() clears its first 4 KiB",
+   "refs": [
+    {
+     "file": "cmd/zpool/zpool_vdev.c",
+     "line": 1132,
+     "symbol": "zpool_label_disk_wait",
+     "code": "ret = zpool_label_disk_wait(udevpath, DISK_LABEL_WAIT);"
+    },
+    {
+     "file": "cmd/zpool/zpool_vdev.c",
+     "line": 1141,
+     "symbol": "zero_label",
+     "code": "ret = zero_label(udevpath);"
+    }
+   ]
+  },
+  {
+   "id": "E011",
+   "from": "make_disks",
+   "to": "vdev_spec",
+   "type": "cfg",
+   "label": "the leaf's path now names partition 1; update_vdev_config_dev_strs() adds devid and physical path",
+   "refs": [
+    {
+     "file": "cmd/zpool/zpool_vdev.c",
+     "line": 1152,
+     "symbol": "udevpath",
+     "code": "verify(nvlist_add_string(nv, ZPOOL_CONFIG_PATH, udevpath) == 0);"
+    },
+    {
+     "file": "cmd/zpool/zpool_vdev.c",
+     "line": 1157,
+     "symbol": "update_vdev_config_dev_strs",
+     "code": "update_vdev_config_dev_strs(nv);"
+    }
+   ]
+  },
+  {
+   "id": "E012",
+   "from": "vdev_spec",
+   "to": "zpool_cmd",
+   "type": "cfg",
+   "label": "nvroot: type root, children (the top-level vdevs), and the spares and l2cache arrays",
+   "refs": [
+    {
+     "file": "cmd/zpool/zpool_vdev.c",
+     "line": 2064,
+     "symbol": "ZPOOL_CONFIG_TYPE",
+     "code": "verify(nvlist_add_string(nvroot, ZPOOL_CONFIG_TYPE,"
+    },
+    {
+     "file": "cmd/zpool/zpool_vdev.c",
+     "line": 2069,
+     "symbol": "ZPOOL_CONFIG_SPARES",
+     "code": "verify(nvlist_add_nvlist_array(nvroot, ZPOOL_CONFIG_SPARES,"
+    }
+   ]
+  },
+  {
+   "id": "E013",
+   "from": "zpool_cmd",
+   "to": "features_compat",
+   "type": "ctl",
+   "label": "zpool_do_load_compat(compatibility) -> zpool_load_compat()",
+   "refs": [
+    {
+     "file": "cmd/zpool/zpool_main.c",
+     "line": 2249,
+     "symbol": "zpool_do_load_compat",
+     "code": "if (zpool_do_load_compat(compat, requested_features) !="
+    },
+    {
+     "file": "cmd/zpool/zpool_main.c",
+     "line": 14314,
+     "symbol": "zpool_load_compat",
+     "code": "ret = zpool_load_compat(compat, list, report, 1024);"
+    }
+   ]
+  },
+  {
+   "id": "E014",
+   "from": "features_compat",
+   "to": "zpool_cmd",
+   "type": "cfg",
+   "label": "feature@x=disabled is removed; every other supported feature in the set is added as feature@x=enabled, unless -d",
+   "refs": [
+    {
+     "file": "cmd/zpool/zpool_main.c",
+     "line": 2275,
+     "symbol": "nvlist_remove_all",
+     "code": "(void) nvlist_remove_all(props,"
+    },
+    {
+     "file": "cmd/zpool/zpool_main.c",
+     "line": 2290,
+     "symbol": "add_prop_list",
+     "code": "ret = add_prop_list(propname,"
+    }
+   ]
+  },
+  {
+   "id": "E015",
+   "from": "zpool_cmd",
+   "to": "libzfs",
+   "type": "cfg",
+   "label": "zpool_create(g_zfs, poolname, nvroot, props, fsprops)",
+   "refs": [
+    {
+     "file": "cmd/zpool/zpool_main.c",
+     "line": 2298,
+     "symbol": "zpool_create",
+     "code": "if (zpool_create(g_zfs, poolname,"
+    }
+   ]
+  },
+  {
+   "id": "E016",
+   "from": "libzfs",
+   "to": "ioc_pool_create",
+   "type": "cfg",
+   "label": "vdev tree packed by zcmd_write_conf_nvlist(); zpool_valid_proplist() and zfs_valid_proplist(); zfs_ioctl(ZFS_IOC_POOL_CREATE)",
+   "refs": [
+    {
+     "file": "lib/libzfs/libzfs_pool.c",
+     "line": 1616,
+     "symbol": "zcmd_write_conf_nvlist",
+     "code": "zcmd_write_conf_nvlist(hdl, &zc, nvroot);"
+    },
+    {
+     "file": "lib/libzfs/libzfs_pool.c",
+     "line": 1621,
+     "symbol": "zpool_valid_proplist",
+     "code": "if ((zc_props = zpool_valid_proplist(hdl, pool, props,"
+    },
+    {
+     "file": "lib/libzfs/libzfs_pool.c",
+     "line": 1635,
+     "symbol": "zfs_valid_proplist",
+     "code": "if ((zc_fsprops = zfs_valid_proplist(hdl, ZFS_TYPE_FILESYSTEM,"
+    },
+    {
+     "file": "lib/libzfs/libzfs_pool.c",
+     "line": 1673,
+     "symbol": "ZFS_IOC_POOL_CREATE",
+     "code": "if ((ret = zfs_ioctl(hdl, ZFS_IOC_POOL_CREATE, &zc)) != 0) {"
+    }
+   ]
+  },
+  {
+   "id": "E017",
+   "from": "ioc_pool_create",
+   "to": "spa_create",
+   "type": "cfg",
+   "label": "root file system properties split off; zfs_fill_zplprops_root(); spa_create(name, config, props, zplprops, dcp)",
+   "refs": [
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 1730,
+     "symbol": "ZPOOL_ROOTFS_PROPS",
+     "code": "(void) nvlist_remove_all(props, ZPOOL_ROOTFS_PROPS);"
+    },
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 1742,
+     "symbol": "zfs_fill_zplprops_root",
+     "code": "error = zfs_fill_zplprops_root(version, rootprops,"
+    },
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 1752,
+     "symbol": "spa_create",
+     "code": "error = spa_create(zc->zc_name, config, props, zplprops, dcp,"
+    }
+   ]
+  },
+  {
+   "id": "E018",
+   "from": "spa_create",
+   "to": "spa_ns",
+   "type": "ctl",
+   "label": "spa_namespace_enter(); spa_lookup() of the name; spa_add() creates the spa_t",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7322,
+     "symbol": "spa_namespace_enter",
+     "code": "spa_namespace_enter(FTAG);"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7323,
+     "symbol": "spa_lookup",
+     "code": "if (spa_lookup(poolname) != NULL) {"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7335,
+     "symbol": "spa_add",
+     "code": "spa = spa_add(poolname, nvl, altroot);"
+    }
+   ]
+  },
+  {
+   "id": "E019",
+   "from": "spa_create",
+   "to": "spa_activate",
+   "type": "ctl",
+   "label": "spa_activate(spa_mode_global)",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7337,
+     "symbol": "spa_activate",
+     "code": "spa_activate(spa, spa_mode_global);"
+    }
+   ]
+  },
+  {
+   "id": "E020",
+   "from": "spa_create",
+   "to": "prop_validate",
+   "type": "cfg",
+   "label": "spa_prop_validate(props)",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7339,
+     "symbol": "spa_prop_validate",
+     "code": "if (props && (error = spa_prop_validate(spa, props))) {"
+    }
+   ]
+  },
+  {
+   "id": "E021",
+   "from": "spa_create",
+   "to": "config_parse",
+   "type": "cfg",
+   "label": "spa_config_enter(SCL_ALL, writer); spa_config_parse(nvroot, VDEV_ALLOC_ADD)",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7427,
+     "symbol": "spa_config_enter",
+     "code": "spa_config_enter(spa, SCL_ALL, FTAG, RW_WRITER);"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7429,
+     "symbol": "spa_config_parse",
+     "code": "error = spa_config_parse(spa, &rvd, nvroot, NULL, 0, VDEV_ALLOC_ADD);"
+    }
+   ]
+  },
+  {
+   "id": "E022",
+   "from": "config_parse",
+   "to": "vdev_alloc",
+   "type": "cfg",
+   "label": "vdev_alloc() for this nvlist, then spa_config_parse() of each child",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 2071,
+     "symbol": "vdev_alloc",
+     "code": "if ((error = vdev_alloc(spa, vdp, nv, parent, id, atype)) != 0)"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 2091,
+     "symbol": "spa_config_parse",
+     "code": "if ((error = spa_config_parse(spa, &vd, child[c], *vdp, c,"
+    }
+   ]
+  },
+  {
+   "id": "E023",
+   "from": "vdev_alloc",
+   "to": "vdev_raidz",
+   "type": "cfg",
+   "label": "type init hook: vdev_raidz_init() reads nparity; vdev_draid_init() reads the dRAID layout and generates the permutations",
+   "refs": [
+    {
+     "file": "module/zfs/vdev.c",
+     "line": 944,
+     "symbol": "vdev_op_init",
+     "code": "rc = ops->vdev_op_init(spa, nv, &tsd);"
+    },
+    {
+     "file": "module/zfs/vdev_raidz.c",
+     "line": 5628,
+     "symbol": "ZPOOL_CONFIG_NPARITY",
+     "code": "if (nvlist_lookup_uint64(nv, ZPOOL_CONFIG_NPARITY, &nparity) == 0) {"
+    },
+    {
+     "file": "module/zfs/vdev_draid.c",
+     "line": 2500,
+     "symbol": "vdev_draid_generate_perms",
+     "code": "error = vdev_draid_generate_perms(map, &vdc->vdc_perms);"
+    }
+   ]
+  },
+  {
+   "id": "E024",
+   "from": "spa_create",
+   "to": "vdev_create",
+   "type": "ctl",
+   "label": "vdev_create(rvd, TXG_INITIAL, B_FALSE)",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7438,
+     "symbol": "vdev_create",
+     "code": "(error = vdev_create(rvd, txg, B_FALSE)) == 0 &&"
+    }
+   ]
+  },
+  {
+   "id": "E025",
+   "from": "vdev_create",
+   "to": "vdev_open",
+   "type": "ctl",
+   "label": "vdev_open() of the root; anything not HEALTHY fails the create",
+   "refs": [
+    {
+     "file": "module/zfs/vdev.c",
+     "line": 3065,
+     "symbol": "vdev_open",
+     "code": "error = vdev_open(vd, CRED());"
+    },
+    {
+     "file": "module/zfs/vdev.c",
+     "line": 3067,
+     "symbol": "VDEV_STATE_HEALTHY",
+     "code": "if (error || vd->vdev_state != VDEV_STATE_HEALTHY) {"
+    }
+   ]
+  },
+  {
+   "id": "E026",
+   "from": "vdev_open",
+   "to": "vdev_leaf",
+   "type": "ctl",
+   "label": "vdev_op_open() of a leaf: vdev_disk_open() or vdev_file_open()",
+   "refs": [
+    {
+     "file": "module/zfs/vdev.c",
+     "line": 2256,
+     "symbol": "vdev_op_open",
+     "code": "error = vd->vdev_ops->vdev_op_open(vd, &osize, &max_osize,"
+    }
+   ]
+  },
+  {
+   "id": "E027",
+   "from": "vdev_leaf",
+   "to": "dev_normal",
+   "type": "bio",
+   "label": "vdev_blkdev_get_by_path() opens the device; physical and logical block size; bdev_capacity()",
+   "refs": [
+    {
+     "file": "module/os/linux/zfs/vdev_disk.c",
+     "line": 441,
+     "symbol": "vdev_blkdev_get_by_path",
+     "code": "bdh = vdev_blkdev_get_by_path(v->vdev_path, smode,"
+    },
+    {
+     "file": "module/os/linux/zfs/vdev_disk.c",
+     "line": 498,
+     "symbol": "bdev_physical_block_size",
+     "code": "int physical_block_size = bdev_physical_block_size(bdev);"
+    },
+    {
+     "file": "module/os/linux/zfs/vdev_disk.c",
+     "line": 526,
+     "symbol": "bdev_capacity",
+     "code": "*psize = bdev_capacity(bdev);"
+    }
+   ]
+  },
+  {
+   "id": "E028",
+   "from": "vdev_leaf",
+   "to": "vdev_open",
+   "type": "cfg",
+   "label": "psize, max_psize, and logical and physical ashift (log2 of the sector sizes)",
+   "refs": [
+    {
+     "file": "module/os/linux/zfs/vdev_disk.c",
+     "line": 532,
+     "symbol": "physical_ashift",
+     "code": "*physical_ashift = highbit64(MAX(physical_block_size,"
+    },
+    {
+     "file": "module/zfs/vdev_file.c",
+     "line": 180,
+     "symbol": "vdev_file_logical_ashift",
+     "code": "*logical_ashift = vdev_file_logical_ashift;"
+    }
+   ]
+  },
+  {
+   "id": "E029",
+   "from": "vdev_open",
+   "to": "vdev_create",
+   "type": "cfg",
+   "label": "asize = size less VDEV_LABEL_START_SIZE and VDEV_LABEL_END_SIZE; top-level ashift set, vdev_ashift_optimize()",
+   "refs": [
+    {
+     "file": "module/zfs/vdev.c",
+     "line": 2347,
+     "symbol": "VDEV_LABEL_START_SIZE",
+     "code": "asize = osize - (VDEV_LABEL_START_SIZE + VDEV_LABEL_END_SIZE);"
+    },
+    {
+     "file": "module/zfs/vdev.c",
+     "line": 2415,
+     "symbol": "vdev_ashift_optimize",
+     "code": "vdev_ashift_optimize(vd);"
+    }
+   ]
+  },
+  {
+   "id": "E030",
+   "from": "vdev_create",
+   "to": "label_init",
+   "type": "cfg",
+   "label": "vdev_label_init(vd, txg, VDEV_LABEL_CREATE)",
+   "refs": [
+    {
+     "file": "module/zfs/vdev.c",
+     "line": 3076,
+     "symbol": "vdev_label_init",
+     "code": "(error = vdev_label_init(vd, txg, isreplacing ?"
+    }
+   ]
+  },
+  {
+   "id": "E031",
+   "from": "label_init",
+   "to": "zio_create",
+   "type": "zio",
+   "label": "spa_config_generate() with pool txg 0; vdev_label_write() of config, bootenv pad and uberblock template to L0-L3; zio_wait()",
+   "refs": [
+    {
+     "file": "module/zfs/vdev_label.c",
+     "line": 1296,
+     "symbol": "spa_config_generate",
+     "code": "label = spa_config_generate(spa, vd, txg, B_FALSE);"
+    },
+    {
+     "file": "module/zfs/vdev_label.c",
+     "line": 1339,
+     "symbol": "vdev_label_write",
+     "code": "vdev_label_write(zio, vd, l, vp_abd,"
+    },
+    {
+     "file": "module/zfs/vdev_label.c",
+     "line": 1357,
+     "symbol": "zio_wait",
+     "code": "error = zio_wait(zio);"
+    }
+   ]
+  },
+  {
+   "id": "E032",
+   "from": "zio_create",
+   "to": "vdev_leaf",
+   "type": "zio",
+   "label": "through the vdev stages and the disk queue to vdev_op_io_start()",
+   "refs": [
+    {
+     "file": "module/zfs/zio.c",
+     "line": 5315,
+     "symbol": "vdev_op_io_start",
+     "code": "vd->vdev_ops->vdev_op_io_start(zio);"
+    }
+   ]
+  },
+  {
+   "id": "E033",
+   "from": "vdev_leaf",
+   "to": "dev_labels",
+   "type": "bio",
+   "label": "label writes at fixed offsets from vdev_label_offset(): two labels at each end of the device",
+   "refs": [
+    {
+     "file": "module/zfs/vdev_label.c",
+     "line": 169,
+     "symbol": "VDEV_LABELS",
+     "code": "return (offset + l * sizeof (vdev_label_t) + (l < VDEV_LABELS / 2 ?"
+    }
+   ]
+  },
+  {
+   "id": "E034",
+   "from": "spa_create",
+   "to": "ms_size",
+   "type": "alloc",
+   "label": "vdev_metaslab_set_size() for each top-level vdev",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7454,
+     "symbol": "vdev_metaslab_set_size",
+     "code": "vdev_metaslab_set_size(vd);"
+    }
+   ]
+  },
+  {
+   "id": "E035",
+   "from": "spa_create",
+   "to": "ms_init",
+   "type": "alloc",
+   "label": "vdev_expand(vd, TXG_INITIAL): metaslabs created; vdev_config_dirty()",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7455,
+     "symbol": "vdev_expand",
+     "code": "vdev_expand(vd, txg);"
+    },
+    {
+     "file": "module/zfs/vdev.c",
+     "line": 6054,
+     "symbol": "vdev_config_dirty",
+     "code": "vdev_config_dirty(vd);"
+    }
+   ]
+  },
+  {
+   "id": "E036",
+   "from": "ms_init",
+   "to": "classes",
+   "type": "alloc",
+   "label": "vdev_metaslab_group_create(): metaslab_group_create() in the class of the allocation bias, plus an embedded log group for non-log vdevs",
+   "refs": [
+    {
+     "file": "module/zfs/vdev.c",
+     "line": 6052,
+     "symbol": "vdev_metaslab_group_create",
+     "code": "vdev_metaslab_group_create(vd);"
+    },
+    {
+     "file": "module/zfs/vdev.c",
+     "line": 1614,
+     "symbol": "metaslab_group_create",
+     "code": "vd->vdev_mg = metaslab_group_create(mc, vd);"
+    },
+    {
+     "file": "module/zfs/vdev.c",
+     "line": 1618,
+     "symbol": "vdev_log_mg",
+     "code": "vd->vdev_log_mg = metaslab_group_create("
+    }
+   ]
+  },
+  {
+   "id": "E037",
+   "from": "ms_init",
+   "to": "classes",
+   "type": "alloc",
+   "label": "more than zfs_embedded_slog_min_ms metaslabs: the emptiest one is re-created in the embedded log group",
+   "refs": [
+    {
+     "file": "module/zfs/vdev.c",
+     "line": 1741,
+     "symbol": "zfs_embedded_slog_min_ms",
+     "code": "vd->vdev_ms_count > zfs_embedded_slog_min_ms &&"
+    },
+    {
+     "file": "module/zfs/vdev.c",
+     "line": 1773,
+     "symbol": "vdev_log_mg",
+     "code": "VERIFY0(metaslab_init(vd->vdev_log_mg, slog_msid, sm_obj, txg,"
+    }
+   ]
+  },
+  {
+   "id": "E038",
+   "from": "spa_create",
+   "to": "dsl_pool_create",
+   "type": "tx",
+   "label": "dsl_pool_create(spa, zplprops, dcp, TXG_INITIAL)",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7505,
+     "symbol": "dsl_pool_create",
+     "code": "spa->spa_dsl_pool = dp = dsl_pool_create(spa, zplprops, dcp, txg);"
+    }
+   ]
+  },
+  {
+   "id": "E039",
+   "from": "dsl_pool_create",
+   "to": "special_dirs",
+   "type": "tx",
+   "label": "pool directory (object DMU_POOL_DIRECTORY_OBJECT), root dsl_dir, MOS_DIR_NAME, FREE_DIR_NAME, dsl_pool_create_origin()",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_pool.c",
+     "line": 497,
+     "symbol": "DMU_POOL_DIRECTORY_OBJECT",
+     "code": "err = zap_create_claim(dp->dp_meta_objset, DMU_POOL_DIRECTORY_OBJECT,"
+    },
+    {
+     "file": "module/zfs/dsl_pool.c",
+     "line": 505,
+     "symbol": "dsl_dir_create_sync",
+     "code": "dp->dp_root_dir_obj = dsl_dir_create_sync(dp, NULL, NULL, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_pool.c",
+     "line": 510,
+     "symbol": "MOS_DIR_NAME",
+     "code": "(void) dsl_dir_create_sync(dp, dp->dp_root_dir, MOS_DIR_NAME, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_pool.c",
+     "line": 517,
+     "symbol": "FREE_DIR_NAME",
+     "code": "FREE_DIR_NAME, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_pool.c",
+     "line": 530,
+     "symbol": "dsl_pool_create_origin",
+     "code": "dsl_pool_create_origin(dp, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E040",
+   "from": "dsl_pool_create",
+   "to": "feat_obj",
+   "type": "tx",
+   "label": "spa_feature_create_zap_objects(): features for read, for write, descriptions",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_pool.c",
+     "line": 537,
+     "symbol": "spa_feature_create_zap_objects",
+     "code": "spa_feature_create_zap_objects(spa, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E041",
+   "from": "dsl_pool_create",
+   "to": "root_ds",
+   "type": "tx",
+   "label": "dsl_dataset_create_sync_dd(); dmu_objset_create_impl() of type ZFS; zfs_create_fs()",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_pool.c",
+     "line": 544,
+     "symbol": "dsl_dataset_create_sync_dd",
+     "code": "obj = dsl_dataset_create_sync_dd(dp->dp_root_dir, NULL, dcp, 0, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_pool.c",
+     "line": 550,
+     "symbol": "dmu_objset_create_impl",
+     "code": "os = dmu_objset_create_impl(dp->dp_spa, ds,"
+    },
+    {
+     "file": "module/zfs/dsl_pool.c",
+     "line": 554,
+     "symbol": "zfs_create_fs",
+     "code": "zfs_create_fs(os, kcred, zplprops, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E042",
+   "from": "spa_create",
+   "to": "pool_dir",
+   "type": "tx",
+   "label": "dmu_tx_create_assigned(TXG_INITIAL): history object, config object, creation version, deferred-free bpobj",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7519,
+     "symbol": "dmu_tx_create_assigned",
+     "code": "tx = dmu_tx_create_assigned(dp, txg);"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7525,
+     "symbol": "spa_history_create_obj",
+     "code": "spa_history_create_obj(spa, tx);"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7538,
+     "symbol": "DMU_POOL_CONFIG",
+     "code": "DMU_POOL_DIRECTORY_OBJECT, DMU_POOL_CONFIG,"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7563,
+     "symbol": "bpobj_alloc",
+     "code": "obj = bpobj_alloc(spa->spa_meta_objset, 1 << 14, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E043",
+   "from": "spa_create",
+   "to": "pool_props",
+   "type": "cfg",
+   "label": "property defaults (autoexpand ...); spa_configfile_set(); spa_sync_props(props, tx)",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7586,
+     "symbol": "spa_autoexpand",
+     "code": "spa->spa_autoexpand = zpool_prop_default_numeric(ZPOOL_PROP_AUTOEXPAND);"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7593,
+     "symbol": "spa_configfile_set",
+     "code": "spa_configfile_set(spa, props, B_FALSE);"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7594,
+     "symbol": "spa_sync_props",
+     "code": "spa_sync_props(props, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E044",
+   "from": "pool_props",
+   "to": "feat_obj",
+   "type": "cfg",
+   "label": "feature@name: spa_feature_enable() -> feature_enable_sync(), refcount 0",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 10936,
+     "symbol": "spa_feature_enable",
+     "code": "spa_feature_enable(spa, fid, tx);"
+    },
+    {
+     "file": "module/zfs/zfeature.c",
+     "line": 462,
+     "symbol": "feature_enable_sync",
+     "code": "feature_enable_sync(spa, &spa_feature_table[fid], tx);"
+    }
+   ]
+  },
+  {
+   "id": "E045",
+   "from": "spa_create",
+   "to": "feat_obj",
+   "type": "tx",
+   "label": "spa_feature_incr() per dRAID top-level vdev (and per AnyRAID vdev): active from txg 4",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7598,
+     "symbol": "SPA_FEATURE_DRAID",
+     "code": "spa_feature_incr(spa, SPA_FEATURE_DRAID, tx);"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7605,
+     "symbol": "SPA_FEATURE_ANYRAID",
+     "code": "spa_feature_incr(spa, SPA_FEATURE_ANYRAID, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E046",
+   "from": "spa_create",
+   "to": "txg_sync",
+   "type": "tx",
+   "label": "dmu_tx_commit(); txg_sync_start(); txg_wait_synced(dp, TXG_INITIAL)",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7607,
+     "symbol": "dmu_tx_commit",
+     "code": "dmu_tx_commit(tx);"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7610,
+     "symbol": "txg_sync_start",
+     "code": "txg_sync_start(dp);"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7612,
+     "symbol": "txg_wait_synced",
+     "code": "txg_wait_synced(dp, txg);"
+    }
+   ]
+  },
+  {
+   "id": "E047",
+   "from": "txg_sync",
+   "to": "spa_create",
+   "type": "ctl",
+   "label": "tx_synced_txg has reached 4: txg_wait_synced() returns",
+   "refs": [
+    {
+     "file": "module/zfs/txg.c",
+     "line": 726,
+     "symbol": "tx_synced_txg",
+     "code": "while (tx->tx_synced_txg < txg) {"
+    }
+   ]
+  },
+  {
+   "id": "E048",
+   "from": "spa_create",
+   "to": "cachefile",
+   "type": "cfg",
+   "label": "spa_write_cachefile(spa, B_FALSE, B_TRUE, B_TRUE)",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7616,
+     "symbol": "spa_write_cachefile",
+     "code": "spa_write_cachefile(spa, B_FALSE, B_TRUE, B_TRUE);"
+    }
+   ]
+  },
+  {
+   "id": "E049",
+   "from": "spa_create",
+   "to": "ioc_pool_create",
+   "type": "ctl",
+   "label": "spa_load_state back to SPA_LOAD_NONE; spa_namespace_exit(); return 0",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7624,
+     "symbol": "SPA_LOAD_NONE",
+     "code": "spa->spa_load_state = SPA_LOAD_NONE;"
+    }
+   ]
+  },
+  {
+   "id": "E050",
+   "from": "ioc_pool_create",
+   "to": "set_props",
+   "type": "cfg",
+   "label": "zfs_set_prop_nvlist(pool, ZPROP_SRC_LOCAL, rootprops)",
+   "refs": [
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 1766,
+     "symbol": "zfs_set_prop_nvlist",
+     "code": "if (!error && (error = zfs_set_prop_nvlist(spa_name,"
+    }
+   ]
+  },
+  {
+   "id": "E051",
+   "from": "ioc_pool_create",
+   "to": "libzfs",
+   "type": "ctl",
+   "label": "ioctl returns 0 or an errno, with ZPOOL_CONFIG_CREATE_INFO naming a busy device; zfs_ioctl() returns",
+   "refs": [
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 1757,
+     "symbol": "ZPOOL_CONFIG_CREATE_INFO",
+     "code": "ZPOOL_CONFIG_CREATE_INFO, errinfo);"
+    },
+    {
+     "file": "lib/libzfs/libzfs_pool.c",
+     "line": 1673,
+     "symbol": "zfs_ioctl",
+     "code": "if ((ret = zfs_ioctl(hdl, ZFS_IOC_POOL_CREATE, &zc)) != 0) {"
+    }
+   ]
+  },
+  {
+   "id": "E052",
+   "from": "libzfs",
+   "to": "zpool_cmd",
+   "type": "ctl",
+   "label": "zpool_create() returns 0; zpool_do_create() calls zfs_mount() and zfs_share() for the root file system",
+   "refs": [
+    {
+     "file": "cmd/zpool/zpool_main.c",
+     "line": 2303,
+     "symbol": "zfs_mount",
+     "code": "if (zfs_mount(pool, NULL, 0) == 0) {"
+    },
+    {
+     "file": "cmd/zpool/zpool_main.c",
+     "line": 2304,
+     "symbol": "zfs_share",
+     "code": "ret = zfs_share(pool, NULL);"
+    }
+   ]
+  },
+  {
+   "id": "E053",
+   "from": "vdev_open",
+   "to": "vdev_mirror",
+   "type": "ctl",
+   "label": "vdev_op_open() of a mirror: vdev_mirror_open()",
+   "refs": [
+    {
+     "file": "module/zfs/vdev.c",
+     "line": 2256,
+     "symbol": "vdev_op_open",
+     "code": "error = vd->vdev_ops->vdev_op_open(vd, &osize, &max_osize,"
+    }
+   ]
+  },
+  {
+   "id": "E054",
+   "from": "vdev_mirror",
+   "to": "vdev_open",
+   "type": "ctl",
+   "label": "vdev_open_children(); asize = the smallest side",
+   "refs": [
+    {
+     "file": "module/zfs/vdev_mirror.c",
+     "line": 372,
+     "symbol": "vdev_open_children",
+     "code": "vdev_open_children(vd, cr);"
+    },
+    {
+     "file": "module/zfs/vdev_mirror.c",
+     "line": 383,
+     "symbol": "asize",
+     "code": "*asize = MIN(*asize - 1, cvd->vdev_asize - 1) + 1;"
+    }
+   ]
+  },
+  {
+   "id": "E055",
+   "from": "vdev_open",
+   "to": "vdev_raidz",
+   "type": "ctl",
+   "label": "vdev_op_open(): vdev_raidz_open() or vdev_draid_open()",
+   "refs": [
+    {
+     "file": "module/zfs/vdev.c",
+     "line": 2256,
+     "symbol": "vdev_op_open",
+     "code": "error = vd->vdev_ops->vdev_op_open(vd, &osize, &max_osize,"
+    }
+   ]
+  },
+  {
+   "id": "E056",
+   "from": "vdev_raidz",
+   "to": "vdev_open",
+   "type": "ctl",
+   "label": "vdev_open_children(); raidz asize = smallest child x vdev_children; dRAID opens data children, then spares, and subtracts VDEV_DRAID_REFLOW_RESERVE",
+   "refs": [
+    {
+     "file": "module/zfs/vdev_raidz.c",
+     "line": 2235,
+     "symbol": "vdev_open_children",
+     "code": "vdev_open_children(vd, cr);"
+    },
+    {
+     "file": "module/zfs/vdev_raidz.c",
+     "line": 2265,
+     "symbol": "vdev_children",
+     "code": "*asize *= vd->vdev_children;"
+    },
+    {
+     "file": "module/zfs/vdev_draid.c",
+     "line": 1712,
+     "symbol": "vdev_draid_open_children",
+     "code": "vdev_open_children_subset(vd, cr, vdev_draid_open_children);"
+    },
+    {
+     "file": "module/zfs/vdev_draid.c",
+     "line": 1759,
+     "symbol": "VDEV_DRAID_REFLOW_RESERVE",
+     "code": "child_asize = ((child_asize - VDEV_DRAID_REFLOW_RESERVE) /"
+    }
+   ]
+  },
+  {
+   "id": "E057",
+   "from": "spa_create",
+   "to": "draid_spares",
+   "type": "cfg",
+   "label": "vdev_draid_spare_create() appends draid<p>-<vdev>-<n> spares (VDEV_TYPE_DRAID name); ENOTSUP unless has_draid",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7439,
+     "symbol": "vdev_draid_spare_create",
+     "code": "(error = vdev_draid_spare_create(nvroot, rvd, &ndraid,"
+    },
+    {
+     "file": "module/zfs/vdev_draid.c",
+     "line": 1919,
+     "symbol": "VDEV_TYPE_DRAID",
+     "code": "\"%s%llu-%llu-%llu\", VDEV_TYPE_DRAID,"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7441,
+     "symbol": "has_draid",
+     "code": "(ndraid == 0 || has_draid || (error = SET_ERROR(ENOTSUP))) &&"
+    }
+   ]
+  },
+  {
+   "id": "E058",
+   "from": "spa_create",
+   "to": "aux_validate",
+   "type": "cfg",
+   "label": "spa_validate_aux(nvroot, TXG_INITIAL): spares, then l2cache",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7446,
+     "symbol": "spa_validate_aux",
+     "code": "(error = spa_validate_aux(spa, nvroot, txg, VDEV_ALLOC_ADD)) == 0) {"
+    }
+   ]
+  },
+  {
+   "id": "E059",
+   "from": "aux_validate",
+   "to": "config_parse",
+   "type": "cfg",
+   "label": "spa_config_parse() of one aux device; it must be a leaf",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7155,
+     "symbol": "spa_config_parse",
+     "code": "if ((error = spa_config_parse(spa, &vd, dev[i], NULL, 0,"
+    }
+   ]
+  },
+  {
+   "id": "E060",
+   "from": "aux_validate",
+   "to": "vdev_open",
+   "type": "ctl",
+   "label": "vdev_open() of the standalone leaf",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7167,
+     "symbol": "vdev_open",
+     "code": "if ((error = vdev_open(vd, CRED())) == 0 &&"
+    }
+   ]
+  },
+  {
+   "id": "E061",
+   "from": "aux_validate",
+   "to": "label_init",
+   "type": "cfg",
+   "label": "vdev_label_init(VDEV_LABEL_SPARE or VDEV_LABEL_L2CACHE); guid written back into the nvlist (ZPOOL_CONFIG_GUID); vdev_free()",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7168,
+     "symbol": "vdev_label_init",
+     "code": "(error = vdev_label_init(vd, crtxg, label)) == 0) {"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7169,
+     "symbol": "ZPOOL_CONFIG_GUID",
+     "code": "fnvlist_add_uint64(dev[i], ZPOOL_CONFIG_GUID,"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7173,
+     "symbol": "vdev_free",
+     "code": "vdev_free(vd);"
+    }
+   ]
+  },
+  {
+   "id": "E062",
+   "from": "vdev_leaf",
+   "to": "dev_spare",
+   "type": "bio",
+   "label": "vdev_blkdev_get_by_path(): open the spare",
+   "refs": [
+    {
+     "file": "module/os/linux/zfs/vdev_disk.c",
+     "line": 441,
+     "symbol": "vdev_blkdev_get_by_path",
+     "code": "bdh = vdev_blkdev_get_by_path(v->vdev_path, smode,"
+    }
+   ]
+  },
+  {
+   "id": "E063",
+   "from": "vdev_leaf",
+   "to": "dev_l2arc",
+   "type": "bio",
+   "label": "vdev_blkdev_get_by_path(): open the cache device",
+   "refs": [
+    {
+     "file": "module/os/linux/zfs/vdev_disk.c",
+     "line": 441,
+     "symbol": "vdev_blkdev_get_by_path",
+     "code": "bdh = vdev_blkdev_get_by_path(v->vdev_path, smode,"
+    }
+   ]
+  },
+  {
+   "id": "E064",
+   "from": "spa_create",
+   "to": "aux_load",
+   "type": "cfg",
+   "label": "spa_load_spares(); sav_sync set; spa_load_l2cache()",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7483,
+     "symbol": "spa_load_spares",
+     "code": "spa_load_spares(spa);"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7485,
+     "symbol": "sav_sync",
+     "code": "spa->spa_spares.sav_sync = B_TRUE;"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7499,
+     "symbol": "spa_load_l2cache",
+     "code": "spa_load_l2cache(spa);"
+    }
+   ]
+  },
+  {
+   "id": "E065",
+   "from": "aux_load",
+   "to": "vdev_open",
+   "type": "ctl",
+   "label": "each device parsed again (VDEV_ALLOC_SPARE or VDEV_ALLOC_L2CACHE) and vdev_open(); spa_spare_add() / spa_l2cache_add()",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 2553,
+     "symbol": "VDEV_ALLOC_SPARE",
+     "code": "VDEV_ALLOC_SPARE));"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 2583,
+     "symbol": "vdev_open",
+     "code": "if (vdev_open(vd, CRED()) != 0)"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 2587,
+     "symbol": "spa_spare_add",
+     "code": "spa_spare_add(vd);"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 2689,
+     "symbol": "spa_l2cache_add",
+     "code": "spa_l2cache_add(vd);"
+    }
+   ]
+  },
+  {
+   "id": "E066",
+   "from": "aux_load",
+   "to": "dev_l2arc",
+   "type": "ctl",
+   "label": "l2arc_add_vdev(): the device joins the L2ARC; SPA_ASYNC_L2CACHE_TRIM requested",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 2702,
+     "symbol": "l2arc_add_vdev",
+     "code": "l2arc_add_vdev(spa, vd);"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 2711,
+     "symbol": "SPA_ASYNC_L2CACHE_TRIM",
+     "code": "spa_async_request(spa, SPA_ASYNC_L2CACHE_TRIM);"
+    }
+   ]
+  },
+  {
+   "id": "E067",
+   "from": "vdev_leaf",
+   "to": "dev_special",
+   "type": "bio",
+   "label": "vdev_blkdev_get_by_path(): open the special vdev's disks",
+   "refs": [
+    {
+     "file": "module/os/linux/zfs/vdev_disk.c",
+     "line": 441,
+     "symbol": "vdev_blkdev_get_by_path",
+     "code": "bdh = vdev_blkdev_get_by_path(v->vdev_path, smode,"
+    }
+   ]
+  },
+  {
+   "id": "E068",
+   "from": "vdev_leaf",
+   "to": "dev_dedup",
+   "type": "bio",
+   "label": "vdev_blkdev_get_by_path(): open the dedup vdev's disks",
+   "refs": [
+    {
+     "file": "module/os/linux/zfs/vdev_disk.c",
+     "line": 441,
+     "symbol": "vdev_blkdev_get_by_path",
+     "code": "bdh = vdev_blkdev_get_by_path(v->vdev_path, smode,"
+    }
+   ]
+  },
+  {
+   "id": "E069",
+   "from": "vdev_leaf",
+   "to": "dev_slog",
+   "type": "bio",
+   "label": "vdev_blkdev_get_by_path(): open the log vdev's disks",
+   "refs": [
+    {
+     "file": "module/os/linux/zfs/vdev_disk.c",
+     "line": 441,
+     "symbol": "vdev_blkdev_get_by_path",
+     "code": "bdh = vdev_blkdev_get_by_path(v->vdev_path, smode,"
+    }
+   ]
+  },
+  {
+   "id": "E070",
+   "from": "txg_sync",
+   "to": "spa_sync",
+   "type": "tx",
+   "label": "txg_sync_thread(): spa_sync(spa, 4), the first txg",
+   "refs": [
+    {
+     "file": "module/zfs/txg.c",
+     "line": 602,
+     "symbol": "spa_sync",
+     "code": "spa_sync(spa, txg);"
+    }
+   ]
+  },
+  {
+   "id": "E071",
+   "from": "spa_sync",
+   "to": "config_obj",
+   "type": "cfg",
+   "label": "spa_sync_config_object(): vdev_construct_zaps(), spa_config_generate(), spa_sync_nvlist() into the config object",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 11202,
+     "symbol": "spa_sync_config_object",
+     "code": "spa_sync_config_object(spa, tx);"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 10805,
+     "symbol": "vdev_construct_zaps",
+     "code": "vdev_construct_zaps(spa->spa_root_vdev, tx);"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 10807,
+     "symbol": "spa_config_generate",
+     "code": "config = spa_config_generate(spa, spa->spa_root_vdev,"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 10823,
+     "symbol": "spa_sync_nvlist",
+     "code": "spa_sync_nvlist(spa, spa->spa_config_object, config, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E072",
+   "from": "config_obj",
+   "to": "feat_obj",
+   "type": "tx",
+   "label": "vdev_zap_allocation_data(): bias stored in the top-level ZAP; special or dedup -> spa_activate_allocation_classes() -> spa_feature_incr()",
+   "refs": [
+    {
+     "file": "module/zfs/vdev.c",
+     "line": 3775,
+     "symbol": "vdev_zap_allocation_data",
+     "code": "vdev_zap_allocation_data(vd, tx);"
+    },
+    {
+     "file": "module/zfs/vdev.c",
+     "line": 3734,
+     "symbol": "spa_activate_allocation_classes",
+     "code": "spa_activate_allocation_classes(spa, tx);"
+    },
+    {
+     "file": "module/zfs/spa_misc.c",
+     "line": 1853,
+     "symbol": "spa_feature_incr",
+     "code": "spa_feature_incr(spa, SPA_FEATURE_ALLOCATION_CLASSES, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E073",
+   "from": "spa_sync",
+   "to": "config_obj",
+   "type": "cfg",
+   "label": "spa_sync_aux_dev(): spare and l2cache lists into new MOS objects (dmu_object_alloc())",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 11203,
+     "symbol": "spa_sync_aux_dev",
+     "code": "spa_sync_aux_dev(spa, &spa->spa_spares, tx,"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 10656,
+     "symbol": "dmu_object_alloc",
+     "code": "sav->sav_object = dmu_object_alloc(spa->spa_meta_objset,"
+    }
+   ]
+  },
+  {
+   "id": "E074",
+   "from": "spa_sync",
+   "to": "dsl_pool_sync",
+   "type": "tx",
+   "label": "dsl_pool_sync(dp, 4)",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 11208,
+     "symbol": "dsl_pool_sync",
+     "code": "dsl_pool_sync(dp, txg);"
+    }
+   ]
+  },
+  {
+   "id": "E075",
+   "from": "dsl_pool_sync",
+   "to": "zio_create",
+   "type": "zio",
+   "label": "dmu_objset_sync() of the root dataset, $ORIGIN and then the MOS: ordinary block writes",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_pool.c",
+     "line": 582,
+     "symbol": "dmu_objset_sync",
+     "code": "dmu_objset_sync(dp->dp_meta_objset, zio, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E076",
+   "from": "vdev_leaf",
+   "to": "dev_normal",
+   "type": "bio",
+   "label": "vdev_disk_io_start(): MOS and dataset blocks of txg 4",
+   "refs": [
+    {
+     "file": "module/os/linux/zfs/vdev_disk.c",
+     "line": 1241,
+     "symbol": "vdev_disk_io_start",
+     "code": "vdev_disk_io_start(zio_t *zio)"
+    }
+   ]
+  },
+  {
+   "id": "E077",
+   "from": "vdev_leaf",
+   "to": "dev_special",
+   "type": "bio",
+   "label": "vdev_disk_io_start(): metadata blocks of txg 4 on the special vdev",
+   "refs": [
+    {
+     "file": "module/os/linux/zfs/vdev_disk.c",
+     "line": 1241,
+     "symbol": "vdev_disk_io_start",
+     "code": "vdev_disk_io_start(zio_t *zio)"
+    }
+   ]
+  },
+  {
+   "id": "E078",
+   "from": "spa_sync",
+   "to": "space_map",
+   "type": "alloc",
+   "label": "vdev_sync(): metaslab array object (vdev_ms_array); metaslab_sync() -> space_map_alloc() per metaslab",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 11241,
+     "symbol": "vdev_sync",
+     "code": "vdev_sync(vd, txg);"
+    },
+    {
+     "file": "module/zfs/vdev.c",
+     "line": 4441,
+     "symbol": "vdev_ms_array",
+     "code": "vd->vdev_ms_array = dmu_object_alloc(spa->spa_meta_objset,"
+    },
+    {
+     "file": "module/zfs/metaslab.c",
+     "line": 4412,
+     "symbol": "space_map_alloc",
+     "code": "uint64_t new_object = space_map_alloc(mos,"
+    }
+   ]
+  },
+  {
+   "id": "E079",
+   "from": "space_map",
+   "to": "spa_sync",
+   "type": "ctl",
+   "label": "the new objects dirty the MOS: another pass while dmu_objset_is_dirty()",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 11289,
+     "symbol": "dmu_objset_is_dirty",
+     "code": "} while (dmu_objset_is_dirty(mos, txg));"
+    }
+   ]
+  },
+  {
+   "id": "E080",
+   "from": "dsl_pool_sync",
+   "to": "uberblock",
+   "type": "bp",
+   "label": "dsl_pool_sync_mos(): spa_set_rootblkptr() with the MOS root block pointer",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_pool.c",
+     "line": 589,
+     "symbol": "spa_set_rootblkptr",
+     "code": "spa_set_rootblkptr(dp->dp_spa, &dp->dp_meta_rootbp);"
+    }
+   ]
+  },
+  {
+   "id": "E081",
+   "from": "spa_sync",
+   "to": "uberblock",
+   "type": "tx",
+   "label": "spa_sync_rewrite_vdev_config(): vdev_config_sync() over all top-level vdevs",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 11529,
+     "symbol": "spa_sync_rewrite_vdev_config",
+     "code": "spa_sync_rewrite_vdev_config(spa, tx);"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 11384,
+     "symbol": "vdev_config_sync",
+     "code": "error = vdev_config_sync(spa, rvd->vdev_child,"
+    }
+   ]
+  },
+  {
+   "id": "E082",
+   "from": "uberblock",
+   "to": "vdev_label",
+   "type": "cfg",
+   "label": "uberblock_update(txg 4); vdev_label_sync_list() L0, L2; vdev_uberblock_sync_list(); vdev_label_sync_list() L1, L3",
+   "refs": [
+    {
+     "file": "module/zfs/vdev_label.c",
+     "line": 2275,
+     "symbol": "uberblock_update",
+     "code": "boolean_t changed = uberblock_update(ub, spa->spa_root_vdev,"
+    },
+    {
+     "file": "module/zfs/vdev_label.c",
+     "line": 2312,
+     "symbol": "vdev_label_sync_list",
+     "code": "if ((error = vdev_label_sync_list(spa, 0, txg, flags)) != 0) {"
+    },
+    {
+     "file": "module/zfs/vdev_label.c",
+     "line": 2345,
+     "symbol": "vdev_uberblock_sync_list",
+     "code": "if ((error = vdev_uberblock_sync_list(spa, svd, svdcount, ub,"
+    },
+    {
+     "file": "module/zfs/vdev_label.c",
+     "line": 2367,
+     "symbol": "vdev_label_sync_list",
+     "code": "if ((error = vdev_label_sync_list(spa, 1, txg, flags)) != 0) {"
+    }
+   ]
+  },
+  {
+   "id": "E083",
+   "from": "vdev_label",
+   "to": "zio_create",
+   "type": "zio",
+   "label": "vdev_label_write() -> zio_write_phys(); zio_flush() of each vdev",
+   "refs": [
+    {
+     "file": "module/zfs/vdev_label.c",
+     "line": 213,
+     "symbol": "zio_write_phys",
+     "code": "zio_nowait(zio_write_phys(zio, vd,"
+    },
+    {
+     "file": "module/zfs/vdev_label.c",
+     "line": 2215,
+     "symbol": "zio_flush",
+     "code": "zio_flush(zio, vd);"
+    }
+   ]
+  },
+  {
+   "id": "E084",
+   "from": "uberblock",
+   "to": "txg_sync",
+   "type": "ctl",
+   "label": "spa_sync() returns; tx_synced_txg = 4; tx_sync_done_cv wakes waiters",
+   "refs": [
+    {
+     "file": "module/zfs/txg.c",
+     "line": 607,
+     "symbol": "tx_synced_txg",
+     "code": "tx->tx_synced_txg = txg;"
+    },
+    {
+     "file": "module/zfs/txg.c",
+     "line": 610,
+     "symbol": "tx_sync_done_cv",
+     "code": "cv_broadcast(&tx->tx_sync_done_cv);"
+    }
+   ]
+  },
+  {
+   "id": "E085",
+   "from": "spa_ns",
+   "to": "spa_create",
+   "type": "ctl",
+   "label": "the name is taken: return EEXIST before anything is allocated",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7325,
+     "symbol": "EEXIST",
+     "code": "return (SET_ERROR(EEXIST));"
+    }
+   ]
+  },
+  {
+   "id": "E086",
+   "from": "spa_create",
+   "to": "ioc_pool_create",
+   "type": "ctl",
+   "label": "error return; after a vdev error spa_create_info goes back as errinfo",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7463,
+     "symbol": "spa_create_info",
+     "code": "*errinfo = spa->spa_create_info;"
+    }
+   ]
+  },
+  {
+   "id": "E087",
+   "from": "libzfs",
+   "to": "zpool_cmd",
+   "type": "ctl",
+   "label": "error message: EBUSY (device in use or listed twice), EOVERFLOW (below 64 MiB), zpool_standard_error() (EEXIST: EZFS_EXISTS, \"pool already exists\" ...)",
+   "refs": [
+    {
+     "file": "lib/libzfs/libzfs_pool.c",
+     "line": 1675,
+     "symbol": "EBUSY",
+     "code": "case EBUSY:"
+    },
+    {
+     "file": "lib/libzfs/libzfs_pool.c",
+     "line": 1708,
+     "symbol": "EOVERFLOW",
+     "code": "case EOVERFLOW:"
+    },
+    {
+     "file": "lib/libzfs/libzfs_pool.c",
+     "line": 1783,
+     "symbol": "zpool_standard_error",
+     "code": "ret = zpool_standard_error(hdl, errno, errbuf);"
+    },
+    {
+     "file": "lib/libzfs/libzfs_util.c",
+     "line": 669,
+     "symbol": "EZFS_EXISTS",
+     "code": "zfs_verror(hdl, EZFS_EXISTS, fmt, ap);"
+    }
+   ]
+  },
+  {
+   "id": "E088",
+   "from": "inuse_check",
+   "to": "vdev_spec",
+   "type": "ctl",
+   "label": "exclusive open fails (\"is in use\", type from blkid_get_tag_value()), a POOL_STATE_ACTIVE pool, or another signature without force: is_device_in_use() is true",
+   "refs": [
+    {
+     "file": "cmd/zpool/os/linux/zpool_vdev_os.c",
+     "line": 318,
+     "symbol": "blkid_get_tag_value",
+     "code": "char *value = blkid_get_tag_value(cache, \"TYPE\", path);"
+    },
+    {
+     "file": "cmd/zpool/zpool_vdev.c",
+     "line": 147,
+     "symbol": "POOL_STATE_ACTIVE",
+     "code": "if (state == POOL_STATE_ACTIVE ||"
+    },
+    {
+     "file": "cmd/zpool/os/linux/zpool_vdev_os.c",
+     "line": 274,
+     "symbol": "force",
+     "code": "if (force) {"
+    },
+    {
+     "file": "cmd/zpool/zpool_vdev.c",
+     "line": 2197,
+     "symbol": "is_device_in_use",
+     "code": "if (is_device_in_use(poolconfig, newroot, force, replacing, B_FALSE)) {"
+    }
+   ]
+  },
+  {
+   "id": "E089",
+   "from": "rep_check",
+   "to": "vdev_spec",
+   "type": "ctl",
+   "label": "vdev_error(): \"mismatched replication level\" or \"contains devices of different sizes\", under \"use '-f' to override\" unless is_force",
+   "refs": [
+    {
+     "file": "cmd/zpool/zpool_vdev.c",
+     "line": 537,
+     "symbol": "vdev_error",
+     "code": "vdev_error("
+    },
+    {
+     "file": "cmd/zpool/zpool_vdev.c",
+     "line": 785,
+     "symbol": "vdev_error",
+     "code": "vdev_error("
+    },
+    {
+     "file": "cmd/zpool/zpool_vdev.c",
+     "line": 87,
+     "symbol": "is_force",
+     "code": "if (!is_force)"
+    }
+   ]
+  },
+  {
+   "id": "E090",
+   "from": "vdev_spec",
+   "to": "zpool_cmd",
+   "type": "ctl",
+   "label": "make_root_vdev() returns NULL (nvroot): zpool create exits 1",
+   "refs": [
+    {
+     "file": "cmd/zpool/zpool_main.c",
+     "line": 2136,
+     "symbol": "nvroot",
+     "code": "if (nvroot == NULL)"
+    }
+   ]
+  },
+  {
+   "id": "E091",
+   "from": "spa_create",
+   "to": "spa_unload",
+   "type": "ctl",
+   "label": "error (zfs_special_devs() without allocation_classes, bad props, vdev errors): spa_unload(), spa_deactivate(), spa_remove()",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7388,
+     "symbol": "zfs_special_devs",
+     "code": "if (!has_allocclass && zfs_special_devs(nvroot, NULL)) {"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7466,
+     "symbol": "spa_unload",
+     "code": "spa_unload(spa);"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7467,
+     "symbol": "spa_deactivate",
+     "code": "spa_deactivate(spa);"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 7468,
+     "symbol": "spa_remove",
+     "code": "spa_remove(spa);"
+    }
+   ]
+  },
+  {
+   "id": "E092",
+   "from": "vdev_open",
+   "to": "vdev_create",
+   "type": "ctl",
+   "label": "leaf below SPA_MINDEVSIZE (64 MiB): EOVERFLOW; vdev_create() calls vdev_close()",
+   "refs": [
+    {
+     "file": "module/zfs/vdev.c",
+     "line": 2341,
+     "symbol": "SPA_MINDEVSIZE",
+     "code": "if (osize < SPA_MINDEVSIZE) {"
+    },
+    {
+     "file": "module/zfs/vdev.c",
+     "line": 2344,
+     "symbol": "EOVERFLOW",
+     "code": "return (SET_ERROR(EOVERFLOW));"
+    },
+    {
+     "file": "module/zfs/vdev.c",
+     "line": 3068,
+     "symbol": "vdev_close",
+     "code": "vdev_close(vd);"
+    }
+   ]
+  },
+  {
+   "id": "E093",
+   "from": "label_init",
+   "to": "vdev_create",
+   "type": "ctl",
+   "label": "vdev_inuse() is true (active pool, spare or cache, or vdtxg == crtxg: listed twice); spa_create_info set; EBUSY",
+   "refs": [
+    {
+     "file": "module/zfs/vdev_label.c",
+     "line": 1198,
+     "symbol": "vdev_inuse",
+     "code": "vdev_inuse(vd, crtxg, reason, &spare_guid, &l2cache_guid)) {"
+    },
+    {
+     "file": "module/zfs/vdev_label.c",
+     "line": 1037,
+     "symbol": "vdtxg",
+     "code": "txg == 0 && vdtxg == crtxg)"
+    },
+    {
+     "file": "module/zfs/vdev_label.c",
+     "line": 1218,
+     "symbol": "spa_create_info",
+     "code": "spa->spa_create_info = nv;"
+    },
+    {
+     "file": "module/zfs/vdev_label.c",
+     "line": 1220,
+     "symbol": "EBUSY",
+     "code": "return (SET_ERROR(EBUSY));"
+    }
+   ]
+  },
+  {
+   "id": "E094",
+   "from": "set_props",
+   "to": "ioc_pool_create",
+   "type": "ctl",
+   "label": "a root property fails: spa_destroy() of the new pool, error returned",
+   "refs": [
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 1768,
+     "symbol": "spa_destroy",
+     "code": "(void) spa_destroy(spa_name);"
+    }
+   ]
+  },
+  {
+   "id": "E095",
+   "from": "admin",
+   "to": "zpool_cmd",
+   "type": "ctl",
+   "label": "runs zpool create [-f] [-o property=value] [-O fs-property=value] pool vdev-spec ...",
+   "refs": [
+    {
+     "file": "cmd/zpool/zpool_main.c",
+     "line": 375,
+     "symbol": "zpool_do_create",
+     "code": "{ \"create\",\tzpool_do_create,\tHELP_CREATE\t\t},"
+    }
+   ]
+  }
+ ],
+ "paths": [
+  {
+   "id": "create_disk",
+   "category": "Create",
+   "title": "Create a pool on one whole disk",
+   "summary": "`zpool create tank /dev/disk/by-id/ata-X` from the command line to the mounted file system. The first txg is drawn as one wait here; path `first_txg` opens it up.",
+   "ends": "The disk has a GPT with ZFS in partition 1, four labels describing a one-vdev pool at txg 4, about 200 metaslabs with space maps (fewer on a small disk), and a MOS holding the pool directory, the root, `$MOS`, `$FREE` and `$ORIGIN` directories, the root dataset and the feature objects. The pool is in zpool.cache and its file system is mounted at /tank. The writes themselves follow `zfs-io-flow:txg_sync`.",
+   "alts": [],
+   "steps": [
+    {
+     "wire": "E095"
+    },
+    {
+     "wire": "E001"
+    },
+    {
+     "wire": "E002",
+     "note": "one device, no keyword: it is top-level vdev 0 by itself"
+    },
+    {
+     "wire": "E003"
+    },
+    {
+     "wire": "E004"
+    },
+    {
+     "wire": "E005"
+    },
+    {
+     "wire": "E006",
+     "note": "a single top-level vdev has nothing to be compared with"
+    },
+    {
+     "wire": "E007"
+    },
+    {
+     "wire": "E008"
+    },
+    {
+     "wire": "E009",
+     "note": "whatever partitions the disk had are gone from here on"
+    },
+    {
+     "wire": "E010"
+    },
+    {
+     "wire": "E011"
+    },
+    {
+     "wire": "E012"
+    },
+    {
+     "wire": "E013"
+    },
+    {
+     "wire": "E014"
+    },
+    {
+     "wire": "E015"
+    },
+    {
+     "wire": "E016"
+    },
+    {
+     "wire": "E017"
+    },
+    {
+     "wire": "E018"
+    },
+    {
+     "wire": "E019"
+    },
+    {
+     "wire": "E020"
+    },
+    {
+     "wire": "E021"
+    },
+    {
+     "wire": "E022",
+     "note": "root vdev (its guid is the pool guid), then the disk"
+    },
+    {
+     "wire": "E024"
+    },
+    {
+     "wire": "E025"
+    },
+    {
+     "wire": "E026"
+    },
+    {
+     "wire": "E027"
+    },
+    {
+     "wire": "E028"
+    },
+    {
+     "wire": "E029",
+     "note": "a 4K-sector disk normally gets ashift 12"
+    },
+    {
+     "wire": "E030"
+    },
+    {
+     "wire": "E031"
+    },
+    {
+     "wire": "E032"
+    },
+    {
+     "wire": "E033"
+    },
+    {
+     "wire": "E058",
+     "note": "no spares or cache devices: nothing to check"
+    },
+    {
+     "wire": "E034"
+    },
+    {
+     "wire": "E035"
+    },
+    {
+     "wire": "E036",
+     "note": "normal class"
+    },
+    {
+     "wire": "E037"
+    },
+    {
+     "wire": "E038"
+    },
+    {
+     "wire": "E039"
+    },
+    {
+     "wire": "E040"
+    },
+    {
+     "wire": "E041"
+    },
+    {
+     "wire": "E042"
+    },
+    {
+     "wire": "E043"
+    },
+    {
+     "wire": "E044"
+    },
+    {
+     "wire": "E046",
+     "note": "txg 4 is written now (path first_txg)"
+    },
+    {
+     "wire": "E047"
+    },
+    {
+     "wire": "E048"
+    },
+    {
+     "wire": "E049"
+    },
+    {
+     "wire": "E050",
+     "note": "only when -O or -m was given"
+    },
+    {
+     "wire": "E051"
+    },
+    {
+     "wire": "E052"
+    }
+   ]
+  },
+  {
+   "id": "vdev_types",
+   "category": "Vdev layout",
+   "title": "Choosing the top-level vdev type",
+   "summary": "What changes between a single disk, a file, a mirror, a raidz and a dRAID: the grammar, the in-use and replication checks, partitioning, the type's init and open, the size of the top-level vdev, dRAID's distributed spares and its feature.",
+   "ends": "One top-level vdev of the chosen type in the normal class, sized as its type dictates, with labels on every leaf. A dRAID pool also has its distributed spares in the spare list and the draid feature active.",
+   "alts": [
+    {
+     "id": "vdev",
+     "options": [
+      {
+       "id": "disk",
+       "label": "Single disk (no extra steps)"
+      },
+      {
+       "id": "file",
+       "label": "File vdev"
+      },
+      {
+       "id": "mirror",
+       "label": "Mirror"
+      },
+      {
+       "id": "raidz",
+       "label": "RAIDZ1, RAIDZ2 or RAIDZ3"
+      },
+      {
+       "id": "draid",
+       "label": "dRAID"
+      }
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "wire": "E095"
+    },
+    {
+     "wire": "E001"
+    },
+    {
+     "wire": "E002",
+     "note": "after mirror, raidzN or draid... the following devices are the children, up to the next keyword"
+    },
+    {
+     "wire": "E003"
+    },
+    {
+     "wire": "E004",
+     "note": "a file is only checked for a ZFS label of another pool"
+    },
+    {
+     "wire": "E005",
+     "when": [
+      {
+       "group": "vdev",
+       "options": [
+        "disk",
+        "mirror",
+        "raidz",
+        "draid"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E006",
+     "note": "a mirror, raidz or dRAID must not mix files and devices, nor sizes more than 16 MiB apart"
+    },
+    {
+     "wire": "E007",
+     "note": "files are left untouched"
+    },
+    {
+     "wire": "E008",
+     "when": [
+      {
+       "group": "vdev",
+       "options": [
+        "disk",
+        "mirror",
+        "raidz",
+        "draid"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E009",
+     "when": [
+      {
+       "group": "vdev",
+       "options": [
+        "disk",
+        "mirror",
+        "raidz",
+        "draid"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E010",
+     "when": [
+      {
+       "group": "vdev",
+       "options": [
+        "disk",
+        "mirror",
+        "raidz",
+        "draid"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E011",
+     "when": [
+      {
+       "group": "vdev",
+       "options": [
+        "disk",
+        "mirror",
+        "raidz",
+        "draid"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E012",
+     "note": "raidz carries nparity; dRAID carries nparity, ndata, nspares, ngroups and children from draid_config_by_type()"
+    },
+    {
+     "wire": "E015"
+    },
+    {
+     "wire": "E016"
+    },
+    {
+     "wire": "E017"
+    },
+    {
+     "wire": "E021"
+    },
+    {
+     "wire": "E022",
+     "note": "mirror, raidz and dRAID are interior top-level vdevs with their leaves as children"
+    },
+    {
+     "wire": "E023",
+     "when": [
+      {
+       "group": "vdev",
+       "options": [
+        "raidz",
+        "draid"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E024"
+    },
+    {
+     "wire": "E025"
+    },
+    {
+     "wire": "E053",
+     "when": [
+      {
+       "group": "vdev",
+       "options": [
+        "mirror"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E054",
+     "when": [
+      {
+       "group": "vdev",
+       "options": [
+        "mirror"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E055",
+     "when": [
+      {
+       "group": "vdev",
+       "options": [
+        "raidz",
+        "draid"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E056",
+     "when": [
+      {
+       "group": "vdev",
+       "options": [
+        "raidz",
+        "draid"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E026",
+     "note": "each leaf"
+    },
+    {
+     "wire": "E027",
+     "note": "a file vdev opens a regular file instead"
+    },
+    {
+     "wire": "E028"
+    },
+    {
+     "wire": "E029",
+     "note": "ashift is chosen once per top-level vdev, from the largest sector size of its children"
+    },
+    {
+     "wire": "E030"
+    },
+    {
+     "wire": "E031"
+    },
+    {
+     "wire": "E032"
+    },
+    {
+     "wire": "E033",
+     "note": "every leaf gets its own labels; each describes the whole top-level vdev it belongs to"
+    },
+    {
+     "wire": "E057",
+     "when": [
+      {
+       "group": "vdev",
+       "options": [
+        "draid"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E064",
+     "when": [
+      {
+       "group": "vdev",
+       "options": [
+        "draid"
+       ]
+      }
+     ],
+     "note": "the distributed spares become the pool's hot spares"
+    },
+    {
+     "wire": "E034"
+    },
+    {
+     "wire": "E035",
+     "note": "dRAID metaslabs are aligned to the group width"
+    },
+    {
+     "wire": "E036"
+    },
+    {
+     "wire": "E045",
+     "when": [
+      {
+       "group": "vdev",
+       "options": [
+        "draid"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "alloc_classes",
+   "category": "Vdev layout",
+   "title": "Special, dedup and log vdevs",
+   "summary": "`zpool create tank mirror A B special mirror C D` (or `dedup ...`, `log ...`): the keyword gives the following top-level vdevs an allocation bias, which decides the metaslab class their space joins.",
+   "ends": "The pool has top-level vdevs in two classes. Special and dedup vdevs have their bias recorded in their top-level ZAP and the allocation_classes feature active; a log vdev is recorded through is_log in the config. Which blocks go where is decided at write time (`zfs-io-flow:txg_sync`).",
+   "alts": [
+    {
+     "id": "class",
+     "options": [
+      {
+       "id": "special",
+       "label": "Special vdev (metadata, optionally small blocks)"
+      },
+      {
+       "id": "dedup",
+       "label": "Dedup vdev (dedup tables)"
+      },
+      {
+       "id": "log",
+       "label": "Log vdev (separate intent log)"
+      }
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "wire": "E095"
+    },
+    {
+     "wire": "E001"
+    },
+    {
+     "wire": "E002",
+     "note": "special, dedup and log set allocation_bias on each following top-level vdev"
+    },
+    {
+     "wire": "E003"
+    },
+    {
+     "wire": "E006",
+     "when": [
+      {
+       "group": "class",
+       "options": [
+        "special",
+        "dedup"
+       ]
+      }
+     ],
+     "note": "must survive at least as many device failures as the normal vdevs; log vdevs are not checked"
+    },
+    {
+     "wire": "E012"
+    },
+    {
+     "wire": "E015"
+    },
+    {
+     "wire": "E016"
+    },
+    {
+     "wire": "E017",
+     "note": "special and dedup need feature@allocation_classes (path fail_kernel)"
+    },
+    {
+     "wire": "E021"
+    },
+    {
+     "wire": "E022",
+     "note": "vdev_derive_alloc_bias() sets the bias; a log vdev also gets vdev_islog"
+    },
+    {
+     "wire": "E024"
+    },
+    {
+     "wire": "E025"
+    },
+    {
+     "wire": "E026"
+    },
+    {
+     "wire": "E067",
+     "when": [
+      {
+       "group": "class",
+       "options": [
+        "special"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E068",
+     "when": [
+      {
+       "group": "class",
+       "options": [
+        "dedup"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E069",
+     "when": [
+      {
+       "group": "class",
+       "options": [
+        "log"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E028"
+    },
+    {
+     "wire": "E029",
+     "note": "the pool's ashift range is tracked over normal vdevs only"
+    },
+    {
+     "wire": "E030"
+    },
+    {
+     "wire": "E031"
+    },
+    {
+     "wire": "E032"
+    },
+    {
+     "wire": "E033"
+    },
+    {
+     "wire": "E034"
+    },
+    {
+     "wire": "E035"
+    },
+    {
+     "wire": "E036",
+     "note": "special: special class and special embedded log; dedup: dedup class and embedded log; log: log class only"
+    },
+    {
+     "wire": "E037",
+     "when": [
+      {
+       "group": "class",
+       "options": [
+        "special"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E046"
+    },
+    {
+     "wire": "E070"
+    },
+    {
+     "wire": "E071"
+    },
+    {
+     "wire": "E072",
+     "when": [
+      {
+       "group": "class",
+       "options": [
+        "special",
+        "dedup"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "aux_vdevs",
+   "category": "Vdev layout",
+   "title": "Hot spares and cache devices",
+   "summary": "`zpool create tank raidz A B C spare D cache E`. Spares and cache devices are labelled and remembered, but never become part of the vdev tree and get no metaslabs.",
+   "ends": "The spare or cache device carries an aux label and is listed in its own MOS object, not in the vdev tree. A spare waits to be attached (`zfs-fault-management:zed_fault`); a cache device is part of the L2ARC at once.",
+   "alts": [
+    {
+     "id": "aux",
+     "options": [
+      {
+       "id": "spare",
+       "label": "Hot spare"
+      },
+      {
+       "id": "cache",
+       "label": "Cache device (L2ARC)"
+      }
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "wire": "E095"
+    },
+    {
+     "wire": "E001"
+    },
+    {
+     "wire": "E002",
+     "note": "spare and cache start lists, each allowed once, not top-level vdevs"
+    },
+    {
+     "wire": "E003"
+    },
+    {
+     "wire": "E004",
+     "note": "a spare may be a spare of another pool too"
+    },
+    {
+     "wire": "E007",
+     "note": "spare and cache disks are partitioned like data disks"
+    },
+    {
+     "wire": "E008"
+    },
+    {
+     "wire": "E009"
+    },
+    {
+     "wire": "E011"
+    },
+    {
+     "wire": "E012",
+     "note": "spares and l2cache arrays sit beside the children"
+    },
+    {
+     "wire": "E015"
+    },
+    {
+     "wire": "E016"
+    },
+    {
+     "wire": "E017"
+    },
+    {
+     "wire": "E021",
+     "note": "only children are parsed into the tree"
+    },
+    {
+     "wire": "E024",
+     "note": "the main tree is opened and labelled as in create_disk"
+    },
+    {
+     "wire": "E058"
+    },
+    {
+     "wire": "E059"
+    },
+    {
+     "wire": "E060"
+    },
+    {
+     "wire": "E026"
+    },
+    {
+     "wire": "E062",
+     "when": [
+      {
+       "group": "aux",
+       "options": [
+        "spare"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E063",
+     "when": [
+      {
+       "group": "aux",
+       "options": [
+        "cache"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E028"
+    },
+    {
+     "wire": "E061"
+    },
+    {
+     "wire": "E031",
+     "note": "aux label: state spare or l2cache, the device guid and path; no pool guid, no vdev tree"
+    },
+    {
+     "wire": "E032"
+    },
+    {
+     "wire": "E033"
+    },
+    {
+     "wire": "E064"
+    },
+    {
+     "wire": "E065"
+    },
+    {
+     "wire": "E066",
+     "when": [
+      {
+       "group": "aux",
+       "options": [
+        "cache"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E046"
+    },
+    {
+     "wire": "E070"
+    },
+    {
+     "wire": "E073"
+    }
+   ]
+  },
+  {
+   "id": "first_txg",
+   "category": "First txg",
+   "title": "The first txg: what is written where",
+   "summary": "spa_create() has built txg 4 in memory; now the sync thread writes it. This is the moment the pool starts to exist on disk.",
+   "ends": "On disk: the MOS and the root dataset, the config object, one space map per metaslab, and on every leaf labels with the real config and an uberblock for txg 4 pointing at the MOS. The pool can be imported from here on. The same commit sequence runs for every later txg (`zfs-io-flow:txg_sync`).",
+   "alts": [
+    {
+     "id": "meta",
+     "options": [
+      {
+       "id": "normal",
+       "label": "No special vdev"
+      },
+      {
+       "id": "special",
+       "label": "With a special vdev"
+      }
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "wire": "E046"
+    },
+    {
+     "wire": "E070"
+    },
+    {
+     "wire": "E071"
+    },
+    {
+     "wire": "E073",
+     "note": "only with spares or cache devices"
+    },
+    {
+     "wire": "E074"
+    },
+    {
+     "wire": "E075"
+    },
+    {
+     "wire": "E032"
+    },
+    {
+     "wire": "E076",
+     "when": [
+      {
+       "group": "meta",
+       "options": [
+        "normal"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E077",
+     "when": [
+      {
+       "group": "meta",
+       "options": [
+        "special"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E078"
+    },
+    {
+     "wire": "E079"
+    },
+    {
+     "wire": "E080"
+    },
+    {
+     "wire": "E081"
+    },
+    {
+     "wire": "E082"
+    },
+    {
+     "wire": "E083"
+    },
+    {
+     "wire": "E032"
+    },
+    {
+     "wire": "E033"
+    },
+    {
+     "wire": "E084"
+    },
+    {
+     "wire": "E047"
+    },
+    {
+     "wire": "E048"
+    }
+   ]
+  },
+  {
+   "id": "features_props",
+   "category": "Features and properties",
+   "title": "Features, compatibility and properties",
+   "summary": "Where `-d`, `-o feature@...`, `-o compatibility=...`, the other `-o` pool properties and the `-O` file system properties end up.",
+   "ends": "Features are enabled (most not yet active), pool properties are in the pool properties ZAP or the config, and the root dataset has its creation-time ZPL properties plus the `-O` properties set as local. With `-O encryption=on` the root dataset becomes an encryption root (`zfs-encryption-keys:create`).",
+   "alts": [],
+   "steps": [
+    {
+     "wire": "E095"
+    },
+    {
+     "wire": "E013"
+    },
+    {
+     "wire": "E014"
+    },
+    {
+     "wire": "E015",
+     "note": "props: -o pool properties and feature@ entries; fsprops: -O and -m"
+    },
+    {
+     "wire": "E016"
+    },
+    {
+     "wire": "E017",
+     "note": "the -O properties travel nested in props and are split off here"
+    },
+    {
+     "wire": "E018",
+     "note": "altroot is taken from props"
+    },
+    {
+     "wire": "E020"
+    },
+    {
+     "wire": "E038"
+    },
+    {
+     "wire": "E040"
+    },
+    {
+     "wire": "E041",
+     "note": "zplprops from zfs_fill_zplprops_root() shape the root file system"
+    },
+    {
+     "wire": "E043"
+    },
+    {
+     "wire": "E044"
+    },
+    {
+     "wire": "E045",
+     "note": "only with dRAID or AnyRAID vdevs"
+    },
+    {
+     "wire": "E046"
+    },
+    {
+     "wire": "E070"
+    },
+    {
+     "wire": "E074",
+     "note": "the feature ZAPs and the pool properties ZAP are written with the MOS"
+    },
+    {
+     "wire": "E047"
+    },
+    {
+     "wire": "E048",
+     "note": "nothing is written for cachefile=none"
+    },
+    {
+     "wire": "E049"
+    },
+    {
+     "wire": "E050"
+    }
+   ]
+  },
+  {
+   "id": "fail_exists",
+   "category": "Failures",
+   "title": "Failure: the pool name exists",
+   "summary": "`zpool create tank ...` while a pool named tank is imported. The kernel refuses at once, but only after zpool has already repartitioned the disks.",
+   "ends": "No kernel state changed, but whole disks named in the command now carry a fresh GPT; what they held before is no longer reachable through their old partition table.",
+   "alts": [],
+   "steps": [
+    {
+     "wire": "E095"
+    },
+    {
+     "wire": "E001"
+    },
+    {
+     "wire": "E007",
+     "note": "the disks are prepared before the kernel is asked"
+    },
+    {
+     "wire": "E008"
+    },
+    {
+     "wire": "E009"
+    },
+    {
+     "wire": "E012"
+    },
+    {
+     "wire": "E015"
+    },
+    {
+     "wire": "E016"
+    },
+    {
+     "wire": "E017"
+    },
+    {
+     "wire": "E018"
+    },
+    {
+     "wire": "E085"
+    },
+    {
+     "wire": "E086"
+    },
+    {
+     "wire": "E051"
+    },
+    {
+     "wire": "E087",
+     "note": "cannot create 'tank': pool already exists"
+    }
+   ]
+  },
+  {
+   "id": "fail_userspace",
+   "category": "Failures",
+   "title": "Failure caught by zpool",
+   "summary": "The checks in make_root_vdev() refuse a device in use or a layout with mismatched redundancy before anything is written; `-f` skips the replication check entirely but not the in-use check.",
+   "ends": "inuse or replication: nothing was written and no ioctl was issued. forced: the create goes on as in `create_disk`, with a pool whose top-level vdevs differ in redundancy.",
+   "alts": [
+    {
+     "id": "check",
+     "options": [
+      {
+       "id": "inuse",
+       "label": "Device in use"
+      },
+      {
+       "id": "replication",
+       "label": "Mismatched replication level"
+      },
+      {
+       "id": "forced",
+       "label": "Mismatched replication with -f (create continues)"
+      }
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "wire": "E095"
+    },
+    {
+     "wire": "E001"
+    },
+    {
+     "wire": "E002"
+    },
+    {
+     "wire": "E003"
+    },
+    {
+     "wire": "E004"
+    },
+    {
+     "wire": "E005"
+    },
+    {
+     "wire": "E088",
+     "when": [
+      {
+       "group": "check",
+       "options": [
+        "inuse"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E006",
+     "when": [
+      {
+       "group": "check",
+       "options": [
+        "replication"
+       ]
+      }
+     ],
+     "note": "for example a mirror beside a raidz2, or raidz1 beside raidz2"
+    },
+    {
+     "wire": "E089",
+     "when": [
+      {
+       "group": "check",
+       "options": [
+        "replication"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E090",
+     "when": [
+      {
+       "group": "check",
+       "options": [
+        "inuse",
+        "replication"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E007",
+     "when": [
+      {
+       "group": "check",
+       "options": [
+        "forced"
+       ]
+      }
+     ],
+     "note": "with -f, check_replication() is never called"
+    },
+    {
+     "wire": "E012",
+     "when": [
+      {
+       "group": "check",
+       "options": [
+        "forced"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E015",
+     "when": [
+      {
+       "group": "check",
+       "options": [
+        "forced"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "fail_kernel",
+   "category": "Failures",
+   "title": "Failure inside the kernel, and rollback",
+   "summary": "Errors that only the kernel can see: a label that marks the device as in use (including the same disk named twice under different paths), a device too small, special or dedup vdevs without the allocation_classes feature, or a root file system property that cannot be set after the pool exists.",
+   "ends": "busy, small, feature: the spa_t, vdev tree and classes are freed and the name is free again; labels written before the failure say pool txg 0 and do not form an importable pool. rootprop: the pool had been fully created and is destroyed again.",
+   "alts": [
+    {
+     "id": "error",
+     "options": [
+      {
+       "id": "busy",
+       "label": "Device label in use (EBUSY)"
+      },
+      {
+       "id": "small",
+       "label": "Device below 64 MiB (EOVERFLOW)"
+      },
+      {
+       "id": "feature",
+       "label": "Special or dedup vdev without feature@allocation_classes (ENOTSUP)"
+      },
+      {
+       "id": "rootprop",
+       "label": "A -O property fails after the pool was created"
+      }
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "wire": "E095"
+    },
+    {
+     "wire": "E015"
+    },
+    {
+     "wire": "E016"
+    },
+    {
+     "wire": "E017"
+    },
+    {
+     "wire": "E018"
+    },
+    {
+     "wire": "E019"
+    },
+    {
+     "wire": "E020"
+    },
+    {
+     "wire": "E021",
+     "when": [
+      {
+       "group": "error",
+       "options": [
+        "busy",
+        "small"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E022",
+     "when": [
+      {
+       "group": "error",
+       "options": [
+        "busy",
+        "small"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E024",
+     "when": [
+      {
+       "group": "error",
+       "options": [
+        "busy",
+        "small"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E025",
+     "when": [
+      {
+       "group": "error",
+       "options": [
+        "busy",
+        "small"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E026",
+     "when": [
+      {
+       "group": "error",
+       "options": [
+        "busy",
+        "small"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E027",
+     "when": [
+      {
+       "group": "error",
+       "options": [
+        "busy",
+        "small"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E028",
+     "when": [
+      {
+       "group": "error",
+       "options": [
+        "busy",
+        "small"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E092",
+     "when": [
+      {
+       "group": "error",
+       "options": [
+        "small"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E029",
+     "when": [
+      {
+       "group": "error",
+       "options": [
+        "busy"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E030",
+     "when": [
+      {
+       "group": "error",
+       "options": [
+        "busy"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E093",
+     "when": [
+      {
+       "group": "error",
+       "options": [
+        "busy"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E091",
+     "when": [
+      {
+       "group": "error",
+       "options": [
+        "busy",
+        "small",
+        "feature"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E086",
+     "when": [
+      {
+       "group": "error",
+       "options": [
+        "busy",
+        "small",
+        "feature"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E049",
+     "when": [
+      {
+       "group": "error",
+       "options": [
+        "rootprop"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E050",
+     "when": [
+      {
+       "group": "error",
+       "options": [
+        "rootprop"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E094",
+     "when": [
+      {
+       "group": "error",
+       "options": [
+        "rootprop"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E051"
+    },
+    {
+     "wire": "E087"
+    }
+   ]
+  }
+ ],
+ "stages": [],
+ "pipelines": [],
+ "pipelineRuntimeNote": "",
+ "about": {
+  "model": [
+   "Most of the checking happens in userspace before the kernel is asked. `zpool` parses the vdev grammar into an nvlist tree, refuses devices that are in use and (unless `-f`) layouts with mismatched redundancy, and on Linux gives every whole disk a new GPT label: partition 1 for ZFS from 1 MiB, an 8 MiB reserved partition 9 at the end. Only then is one ioctl, ZFS_IOC_POOL_CREATE, issued.",
+   "The kernel builds a tree of vdev_t from that nvlist: a root vdev (its guid becomes the pool guid), top-level vdevs (a disk, a file, a mirror, a raidz or a dRAID), and leaves. Each top-level vdev belongs to one allocation class: normal, special, dedup or log. Hot spares and cache devices are not in the tree; they are separate auxiliary lists.",
+   "Sizes and ashift are settled at the first open. Each leaf reports its capacity and sector sizes; a mirror is as large as its smallest side, a raidz is its smallest child times its width (parity included), a dRAID leaves out its distributed spares and a reserve. The ashift chosen for each top-level vdev is kept for its life.",
+   "Every leaf carries four 256 KiB labels, two at the front and two at the end. Create writes provisional labels (pool txg 0) first, leaf by leaf, so a disk that belongs to an active pool, or the same disk named twice, fails with EBUSY before anything else is written.",
+   "The whole initial pool (MOS, pool directory, root, `$MOS`, `$FREE` and `$ORIGIN` directories, the root dataset with its file system objects, feature ZAPs, pool properties, history) is built in memory by the ioctl thread inside txg 4 (TXG_INITIAL), before the txg sync thread even exists.",
+   "The first txg sync writes it all: the pool config object, one space map per metaslab, the MOS and root dataset blocks, then the labels with the real config and the first uberblock. Only when that txg is on disk does `spa_create()` write `zpool.cache`, the root file system properties get set and `zpool` mount the new file system.",
+   "Each top-level vdev is cut into metaslabs when it is created: about 200 by default, each 512 MiB to 16 GiB; normal and special vdevs with more than 64 metaslabs give one of them to an embedded log class.",
+   "A failure in userspace leaves no pool, but whole disks may already have been repartitioned. A failure inside `spa_create()` unwinds everything in memory; a failure to set the root properties destroys the just-created pool again."
+  ],
+  "simplifications": [
+   "Label and block writes jump from `zio_create` to the leaf driver; the pipeline stages and the per-disk queue between them are drawn in the I/O graph.",
+   "The vdev tree is recursive: vdev_open() and vdev_label_init() run once per vdev, and spa_config_parse() once per nvlist. Each is drawn once.",
+   "Return wires are drawn only where a size, an ashift or an error matters; most returns to `spa_create` are implied by the next step.",
+   "Leaf opens for the normal class, special, dedup, log, spare and cache devices are separate wires into separate device nodes; they are the same call (`vdev_disk_open()`).",
+   "dRAID is folded into the RAIDZ node, as in the I/O graph; AnyRAID (`anymirror`) appears only in node text.",
+   "The first txg is shown as one sync with its main writes; the second and later passes of spa_sync(), deferred frees, the log space map and MMP are left out.",
+   "`zpool create -n` (dry run), `-t` (temporary name), boot environments and encryption key handling are described in node text only."
+  ]
+ },
+ "timelines": [],
+ "page": {
+  "id": "zfs-pool-create",
+  "title": "ZFS Pool Creation",
+  "file": "zfs-pool-create.html",
+  "intro": "This spec describes a diagram of `zpool create`: how the command line becomes a vdev specification, which checks can refuse the disks, how Linux whole disks are repartitioned, how the kernel turns the specification into a vdev tree (single disk, file, mirror, raidz, dRAID, special, dedup, log, plus the spare and cache lists that stay outside the tree), how sizes, ashift and metaslabs are decided, what labels are written at once, how the meta-object set (MOS), the root dataset and the feature objects are built for the first txg, and what is on disk once that txg has synced."
+ },
+ "suite": {
+  "pages": [
+   {
+    "id": "zfs-io-flow",
+    "title": "ZFS I/O Flow",
+    "file": "zfs-io-flow.html"
+   },
+   {
+    "id": "zfs-scrub-resilver",
+    "title": "ZFS Scrub, Resilver and Rebuild",
+    "file": "zfs-scrub-resilver.html"
+   },
+   {
+    "id": "zfs-send-receive",
+    "title": "ZFS Send and Receive",
+    "file": "zfs-send-receive.html"
+   },
+   {
+    "id": "zfs-snapshot-lifecycle",
+    "title": "ZFS Snapshots, Destroy and Rollback",
+    "file": "zfs-snapshot-lifecycle.html"
+   },
+   {
+    "id": "zfs-fault-management",
+    "title": "ZFS Fault Management",
+    "file": "zfs-fault-management.html"
+   },
+   {
+    "id": "zfs-encryption-keys",
+    "title": "ZFS Encryption Keys",
+    "file": "zfs-encryption-keys.html"
+   },
+   {
+    "id": "zfs-pool-create",
+    "title": "ZFS Pool Creation",
+    "file": "zfs-pool-create.html"
+   },
+   {
+    "id": "zfs-dataset-create",
+    "title": "ZFS Dataset Creation",
+    "file": "zfs-dataset-create.html"
+   },
+   {
+    "id": "zfs-pool-import-export",
+    "title": "ZFS Pool Import and Export",
+    "file": "zfs-pool-import-export.html"
+   },
+   {
+    "id": "zfs-destroy",
+    "title": "ZFS Destroy Actions",
+    "file": "zfs-destroy.html"
+   }
+  ],
+  "alsoIn": {
+   "admin": [
+    "zfs-scrub-resilver",
+    "zfs-send-receive",
+    "zfs-snapshot-lifecycle",
+    "zfs-fault-management",
+    "zfs-encryption-keys",
+    "zfs-dataset-create",
+    "zfs-pool-import-export",
+    "zfs-destroy"
+   ],
+   "zpool_cmd": [
+    "zfs-pool-import-export",
+    "zfs-destroy"
+   ],
+   "libzfs": [
+    "zfs-snapshot-lifecycle",
+    "zfs-destroy"
+   ],
+   "set_props": [
+    "zfs-dataset-create"
+   ],
+   "spa_ns": [
+    "zfs-pool-import-export"
+   ],
+   "spa_unload": [
+    "zfs-pool-import-export",
+    "zfs-destroy"
+   ],
+   "cachefile": [
+    "zfs-pool-import-export",
+    "zfs-destroy"
+   ],
+   "vdev_open": [
+    "zfs-fault-management",
+    "zfs-pool-import-export"
+   ],
+   "vdev_mirror": [
+    "zfs-io-flow",
+    "zfs-scrub-resilver",
+    "zfs-fault-management"
+   ],
+   "vdev_raidz": [
+    "zfs-io-flow",
+    "zfs-scrub-resilver",
+    "zfs-fault-management"
+   ],
+   "space_map": [
+    "zfs-io-flow"
+   ],
+   "txg_sync": [
+    "zfs-io-flow",
+    "zfs-scrub-resilver",
+    "zfs-send-receive",
+    "zfs-snapshot-lifecycle",
+    "zfs-dataset-create",
+    "zfs-pool-import-export",
+    "zfs-destroy"
+   ],
+   "spa_sync": [
+    "zfs-io-flow",
+    "zfs-scrub-resilver",
+    "zfs-send-receive",
+    "zfs-snapshot-lifecycle",
+    "zfs-fault-management",
+    "zfs-encryption-keys",
+    "zfs-dataset-create",
+    "zfs-pool-import-export",
+    "zfs-destroy"
+   ],
+   "dsl_pool_sync": [
+    "zfs-io-flow",
+    "zfs-send-receive",
+    "zfs-snapshot-lifecycle",
+    "zfs-dataset-create",
+    "zfs-destroy"
+   ],
+   "uberblock": [
+    "zfs-io-flow",
+    "zfs-fault-management",
+    "zfs-pool-import-export",
+    "zfs-destroy"
+   ],
+   "vdev_label": [
+    "zfs-io-flow",
+    "zfs-pool-import-export"
+   ],
+   "zio_create": [
+    "zfs-io-flow",
+    "zfs-scrub-resilver",
+    "zfs-send-receive",
+    "zfs-snapshot-lifecycle",
+    "zfs-fault-management"
+   ],
+   "vdev_leaf": [
+    "zfs-io-flow",
+    "zfs-scrub-resilver",
+    "zfs-fault-management",
+    "zfs-pool-import-export"
+   ],
+   "dev_normal": [
+    "zfs-io-flow",
+    "zfs-scrub-resilver",
+    "zfs-fault-management",
+    "zfs-pool-import-export"
+   ],
+   "dev_special": [
+    "zfs-io-flow"
+   ],
+   "dev_dedup": [
+    "zfs-io-flow"
+   ],
+   "dev_slog": [
+    "zfs-io-flow",
+    "zfs-pool-import-export"
+   ],
+   "dev_l2arc": [
+    "zfs-io-flow"
+   ],
+   "dev_labels": [
+    "zfs-io-flow",
+    "zfs-pool-import-export",
+    "zfs-destroy"
+   ]
+  }
+ }
+}

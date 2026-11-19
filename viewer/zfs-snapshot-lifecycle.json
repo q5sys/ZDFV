@@ -1,0 +1,7032 @@
+{
+ "meta": {
+  "repo": "https://github.com/openzfs/zfs",
+  "commit": "c913da86156eba3243cc1ef515e98d69887654a7",
+  "version": "2.4.99"
+ },
+ "types": [
+  {
+   "id": "tx",
+   "color": "#FFD43B",
+   "name": "Transaction",
+   "desc": "A sync task joining the open txg, or a txg being synced."
+  },
+  {
+   "id": "bp",
+   "color": "#F783AC",
+   "name": "Block pointer",
+   "desc": "blkptr_t of a block that is killed, queued or freed, or the root block pointer of a destroyed dataset."
+  },
+  {
+   "id": "dead",
+   "color": "#8CE99A",
+   "name": "Deadlist and bpobj entries",
+   "desc": "Blocks waiting to be freed: deadlist sub-lists, the pool free list (dp_free_bpobj), livelist entries."
+  },
+  {
+   "id": "alloc",
+   "color": "#C59F7B",
+   "name": "Space",
+   "desc": "Segments returned to a metaslab."
+  },
+  {
+   "id": "zio",
+   "color": "#4DABF7",
+   "name": "I/O request",
+   "desc": "A ZIO_TYPE_FREE zio in the free pipeline."
+  },
+  {
+   "id": "ctl",
+   "color": "#868E96",
+   "name": "Control",
+   "desc": "Calls that carry no payload: checks, sync-task dispatch, accounting, bookmark bookkeeping. Drawn dashed."
+  }
+ ],
+ "contexts": [
+  {
+   "id": "user",
+   "name": "Userspace"
+  },
+  {
+   "id": "open",
+   "name": "Open context: the calling thread, inside a dmu_tx"
+  },
+  {
+   "id": "syscall",
+   "name": "Kernel, in the thread of the calling process (an ioctl on /dev/zfs, mount(2) or umount(2)) or a helper thread it starts, outside syncing context and outside any dmu_tx"
+  },
+  {
+   "id": "sync",
+   "name": "Syncing context: txg_sync thread or dp_sync_taskq workers, one txg at a time"
+  },
+  {
+   "id": "int",
+   "name": "zio interrupt taskq: write completion callbacks"
+  },
+  {
+   "id": "thr",
+   "name": "A dedicated kernel thread or zthr"
+  },
+  {
+   "id": "any",
+   "name": "Runs in whichever context calls it"
+  }
+ ],
+ "groups": [
+  {
+   "id": "cli",
+   "title": "Userspace commands",
+   "color": "#5C5F66",
+   "col": 0,
+   "band": "full",
+   "subcols": 1,
+   "summary": "zfs(8), libzfs and libzfs_core build the request and issue one ioctl."
+  },
+  {
+   "id": "entry",
+   "title": "Kernel entry: ioctl and sync task",
+   "color": "#0C8599",
+   "col": 1,
+   "band": "full",
+   "subcols": 1,
+   "summary": "Open context: validate, queue a sync task on the open txg and wait for it to sync."
+  },
+  {
+   "id": "txg",
+   "title": "TXG sync (shared with the I/O graph)",
+   "color": "#E67700",
+   "col": 2,
+   "band": "full",
+   "subcols": 1,
+   "summary": "Where the txg's data is written, blocks are killed and sync tasks run."
+  },
+  {
+   "id": "ops",
+   "title": "DSL sync tasks",
+   "color": "#1971C2",
+   "col": 3,
+   "band": "full",
+   "subcols": 1,
+   "summary": "Snapshot, hold, destroy, rollback and bookmark, each applied once in syncing context."
+  },
+  {
+   "id": "dead",
+   "title": "Deadlists, bookmarks and space",
+   "color": "#2F9E44",
+   "col": 4,
+   "band": "full",
+   "subcols": 2,
+   "summary": "Where killed blocks wait, and the counters that say who owns which space."
+  },
+  {
+   "id": "bg",
+   "title": "Background freeing",
+   "color": "#862E9C",
+   "col": 6,
+   "band": "full",
+   "subcols": 1,
+   "summary": "Frees queued blocks a slice per txg: the free list, the bptree and clone livelists."
+  },
+  {
+   "id": "free",
+   "title": "Free pipeline (shared with the I/O graph)",
+   "color": "#846358",
+   "col": 7,
+   "band": "full",
+   "subcols": 1,
+   "summary": "Returns a block's space to its metaslab, after clone and dedup references are dropped."
+  }
+ ],
+ "nodes": [
+  {
+   "id": "admin",
+   "group": "cli",
+   "sub": 0,
+   "title": "Administrator",
+   "ctx": "user",
+   "src": "",
+   "fns": [],
+   "role": "The person or script typing the command. Every path in this graph that a command starts begins with a wire from this node; the arrows that come back into a command node are its results, errors and refusals.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "zfs_cmd",
+   "group": "cli",
+   "sub": 0,
+   "title": "zfs(8) command",
+   "ctx": "user",
+   "src": "cmd/zfs/zfs_main.c",
+   "fns": [
+    {
+     "name": "zfs_do_snapshot",
+     "ref": {
+      "file": "cmd/zfs/zfs_main.c",
+      "line": 4647,
+      "symbol": "zfs_do_snapshot",
+      "code": "zfs_do_snapshot(int argc, char **argv)"
+     }
+    },
+    {
+     "name": "zfs_do_destroy",
+     "ref": {
+      "file": "cmd/zfs/zfs_main.c",
+      "line": 1698,
+      "symbol": "zfs_do_destroy",
+      "code": "zfs_do_destroy(int argc, char **argv)"
+     }
+    },
+    {
+     "name": "destroy_callback",
+     "ref": {
+      "file": "cmd/zfs/zfs_main.c",
+      "line": 1483,
+      "symbol": "destroy_callback",
+      "code": "destroy_callback(zfs_handle_t *zhp, void *data)"
+     }
+    },
+    {
+     "name": "zfs_do_rollback",
+     "ref": {
+      "file": "cmd/zfs/zfs_main.c",
+      "line": 4411,
+      "symbol": "zfs_do_rollback",
+      "code": "zfs_do_rollback(int argc, char **argv)"
+     }
+    },
+    {
+     "name": "zfs_do_bookmark",
+     "ref": {
+      "file": "cmd/zfs/zfs_main.c",
+      "line": 8282,
+      "symbol": "zfs_do_bookmark",
+      "code": "zfs_do_bookmark(int argc, char **argv)"
+     }
+    },
+    {
+     "name": "zfs_do_hold_rele_impl",
+     "ref": {
+      "file": "cmd/zfs/zfs_main.c",
+      "line": 6665,
+      "symbol": "zfs_do_hold_rele_impl",
+      "code": "zfs_do_hold_rele_impl(int argc, char **argv, boolean_t holding)"
+     }
+    }
+   ],
+   "role": "The subcommands this graph follows: snapshot (with -r every descendant goes into the same request), destroy (snapshots are batched; -d defers; for a file system its snapshots are destroyed before the file system itself), rollback, bookmark, hold and release.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "libzfs",
+   "group": "cli",
+   "sub": 0,
+   "title": "libzfs / libzfs_core",
+   "ctx": "user",
+   "src": "lib/libzfs_core/libzfs_core.c",
+   "fns": [
+    {
+     "name": "zfs_snapshot_nvl",
+     "ref": {
+      "file": "lib/libzfs/libzfs_dataset.c",
+      "line": 4137,
+      "symbol": "zfs_snapshot_nvl",
+      "code": "zfs_snapshot_nvl(libzfs_handle_t *hdl, nvlist_t *snaps, nvlist_t *props)"
+     }
+    },
+    {
+     "name": "zfs_destroy_snaps_nvl",
+     "ref": {
+      "file": "lib/libzfs/libzfs_dataset.c",
+      "line": 3900,
+      "symbol": "zfs_destroy_snaps_nvl",
+      "code": "zfs_destroy_snaps_nvl(libzfs_handle_t *hdl, nvlist_t *snaps, boolean_t defer)"
+     }
+    },
+    {
+     "name": "zfs_destroy",
+     "ref": {
+      "file": "lib/libzfs/libzfs_dataset.c",
+      "line": 3808,
+      "symbol": "zfs_destroy",
+      "code": "zfs_destroy(zfs_handle_t *zhp, boolean_t defer)"
+     }
+    },
+    {
+     "name": "zfs_rollback",
+     "ref": {
+      "file": "lib/libzfs/libzfs_dataset.c",
+      "line": 4318,
+      "symbol": "zfs_rollback",
+      "code": "zfs_rollback(zfs_handle_t *zhp, zfs_handle_t *snap, boolean_t force)"
+     }
+    },
+    {
+     "name": "rollback_destroy",
+     "ref": {
+      "file": "lib/libzfs/libzfs_dataset.c",
+      "line": 4295,
+      "symbol": "rollback_destroy",
+      "code": "rollback_destroy(zfs_handle_t *zhp, void *data)"
+     }
+    },
+    {
+     "name": "zfs_hold",
+     "ref": {
+      "file": "lib/libzfs/libzfs_dataset.c",
+      "line": 4932,
+      "symbol": "zfs_hold",
+      "code": "zfs_hold(zfs_handle_t *zhp, const char *snapname, const char *tag,"
+     }
+    },
+    {
+     "name": "zfs_hold_nvl",
+     "ref": {
+      "file": "lib/libzfs/libzfs_dataset.c",
+      "line": 4963,
+      "symbol": "zfs_hold_nvl",
+      "code": "zfs_hold_nvl(zfs_handle_t *zhp, int cleanup_fd, nvlist_t *holds)"
+     }
+    },
+    {
+     "name": "zfs_release",
+     "ref": {
+      "file": "lib/libzfs/libzfs_dataset.c",
+      "line": 5061,
+      "symbol": "zfs_release",
+      "code": "zfs_release(zfs_handle_t *zhp, const char *snapname, const char *tag,"
+     }
+    },
+    {
+     "name": "lzc_snapshot",
+     "ref": {
+      "file": "lib/libzfs_core/libzfs_core.c",
+      "line": 400,
+      "symbol": "lzc_snapshot",
+      "code": "lzc_snapshot(nvlist_t *snaps, nvlist_t *props, nvlist_t **errlist)"
+     }
+    },
+    {
+     "name": "lzc_destroy_snaps",
+     "ref": {
+      "file": "lib/libzfs_core/libzfs_core.c",
+      "line": 452,
+      "symbol": "lzc_destroy_snaps",
+      "code": "lzc_destroy_snaps(nvlist_t *snaps, boolean_t defer, nvlist_t **errlist)"
+     }
+    },
+    {
+     "name": "lzc_destroy",
+     "ref": {
+      "file": "lib/libzfs_core/libzfs_core.c",
+      "line": 375,
+      "symbol": "lzc_destroy",
+      "code": "lzc_destroy(const char *fsname)"
+     }
+    },
+    {
+     "name": "lzc_rollback_to",
+     "ref": {
+      "file": "lib/libzfs_core/libzfs_core.c",
+      "line": 1489,
+      "symbol": "lzc_rollback_to",
+      "code": "lzc_rollback_to(const char *fsname, const char *snapname)"
+     }
+    },
+    {
+     "name": "lzc_bookmark",
+     "ref": {
+      "file": "lib/libzfs_core/libzfs_core.c",
+      "line": 1519,
+      "symbol": "lzc_bookmark",
+      "code": "lzc_bookmark(nvlist_t *bookmarks, nvlist_t **errlist)"
+     }
+    },
+    {
+     "name": "lzc_hold",
+     "ref": {
+      "file": "lib/libzfs_core/libzfs_core.c",
+      "line": 578,
+      "symbol": "lzc_hold",
+      "code": "lzc_hold(nvlist_t *holds, int cleanup_fd, nvlist_t **errlist)"
+     }
+    },
+    {
+     "name": "lzc_release",
+     "ref": {
+      "file": "lib/libzfs_core/libzfs_core.c",
+      "line": 625,
+      "symbol": "lzc_release",
+      "code": "lzc_release(nvlist_t *holds, nvlist_t **errlist)"
+     }
+    }
+   ],
+   "role": "libzfs builds the nvlists; zfs_rollback() first destroys the snapshots and bookmarks newer than the target. libzfs_core turns each request into one ioctl.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "zfs_ioctl",
+   "group": "entry",
+   "sub": 0,
+   "title": "ZFS ioctl handlers",
+   "ctx": "syscall",
+   "src": "module/zfs/zfs_ioctl.c",
+   "fns": [
+    {
+     "name": "zfs_ioc_snapshot",
+     "ref": {
+      "file": "module/zfs/zfs_ioctl.c",
+      "line": 4168,
+      "symbol": "zfs_ioc_snapshot",
+      "code": "zfs_ioc_snapshot(const char *poolname, nvlist_t *innvl, nvlist_t *outnvl)"
+     }
+    },
+    {
+     "name": "zfs_ioc_destroy_snaps",
+     "ref": {
+      "file": "module/zfs/zfs_ioctl.c",
+      "line": 4403,
+      "symbol": "zfs_ioc_destroy_snaps",
+      "code": "zfs_ioc_destroy_snaps(const char *poolname, nvlist_t *innvl, nvlist_t *outnvl)"
+     }
+    },
+    {
+     "name": "zfs_ioc_destroy",
+     "ref": {
+      "file": "module/zfs/zfs_ioctl.c",
+      "line": 4701,
+      "symbol": "zfs_ioc_destroy",
+      "code": "zfs_ioc_destroy(zfs_cmd_t *zc)"
+     }
+    },
+    {
+     "name": "zfs_ioc_rollback",
+     "ref": {
+      "file": "module/zfs/zfs_ioctl.c",
+      "line": 5120,
+      "symbol": "zfs_ioc_rollback",
+      "code": "zfs_ioc_rollback(const char *fsname, nvlist_t *innvl, nvlist_t *outnvl)"
+     }
+    },
+    {
+     "name": "zfs_ioc_bookmark",
+     "ref": {
+      "file": "module/zfs/zfs_ioctl.c",
+      "line": 4455,
+      "symbol": "zfs_ioc_bookmark",
+      "code": "zfs_ioc_bookmark(const char *poolname, nvlist_t *innvl, nvlist_t *outnvl)"
+     }
+    },
+    {
+     "name": "zfs_ioc_hold",
+     "ref": {
+      "file": "module/zfs/zfs_ioctl.c",
+      "line": 7092,
+      "symbol": "zfs_ioc_hold",
+      "code": "zfs_ioc_hold(const char *pool, nvlist_t *args, nvlist_t *errlist)"
+     }
+    },
+    {
+     "name": "zfs_ioc_release",
+     "ref": {
+      "file": "module/zfs/zfs_ioctl.c",
+      "line": 7166,
+      "symbol": "zfs_ioc_release",
+      "code": "zfs_ioc_release(const char *pool, nvlist_t *holds, nvlist_t *errlist)"
+     }
+    },
+    {
+     "name": "zfs_unmount_snap",
+     "ref": {
+      "file": "module/zfs/zfs_ioctl.c",
+      "line": 4347,
+      "symbol": "zfs_unmount_snap",
+      "code": "zfs_unmount_snap(const char *snapname)"
+     }
+    }
+   ],
+   "role": "Kernel entry points. They validate names, unmount snapshots that are about to be destroyed, suspend a mounted file system around a rollback, and call the DSL.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "dsl_entry",
+   "group": "entry",
+   "sub": 0,
+   "title": "DSL request functions",
+   "ctx": "syscall",
+   "src": "module/zfs/dsl_dataset.c",
+   "fns": [
+    {
+     "name": "dsl_dataset_snapshot",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 1956,
+      "symbol": "dsl_dataset_snapshot",
+      "code": "dsl_dataset_snapshot(nvlist_t *snaps, nvlist_t *props, nvlist_t *errors)"
+     }
+    },
+    {
+     "name": "dsl_destroy_snapshots_nvl",
+     "ref": {
+      "file": "module/zfs/dsl_destroy.c",
+      "line": 611,
+      "symbol": "dsl_destroy_snapshots_nvl",
+      "code": "dsl_destroy_snapshots_nvl(nvlist_t *snaps, boolean_t defer,"
+     }
+    },
+    {
+     "name": "dsl_destroy_snapshot",
+     "ref": {
+      "file": "module/zfs/dsl_destroy.c",
+      "line": 645,
+      "symbol": "dsl_destroy_snapshot",
+      "code": "dsl_destroy_snapshot(const char *name, boolean_t defer)"
+     }
+    },
+    {
+     "name": "dsl_destroy_head",
+     "ref": {
+      "file": "module/zfs/dsl_destroy.c",
+      "line": 1264,
+      "symbol": "dsl_destroy_head",
+      "code": "dsl_destroy_head(const char *name)"
+     }
+    },
+    {
+     "name": "dsl_dataset_rollback",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 3469,
+      "symbol": "dsl_dataset_rollback",
+      "code": "dsl_dataset_rollback(const char *fsname, const char *tosnap, void *owner,"
+     }
+    },
+    {
+     "name": "dsl_bookmark_create",
+     "ref": {
+      "file": "module/zfs/dsl_bookmark.c",
+      "line": 626,
+      "symbol": "dsl_bookmark_create",
+      "code": "dsl_bookmark_create(nvlist_t *bmarks, nvlist_t *errors)"
+     }
+    },
+    {
+     "name": "dsl_dataset_user_hold",
+     "ref": {
+      "file": "module/zfs/dsl_userhold.c",
+      "line": 317,
+      "symbol": "dsl_dataset_user_hold",
+      "code": "dsl_dataset_user_hold(nvlist_t *holds, minor_t cleanup_minor, nvlist_t *errlist)"
+     }
+    },
+    {
+     "name": "dsl_dataset_user_release",
+     "ref": {
+      "file": "module/zfs/dsl_userhold.c",
+      "line": 644,
+      "symbol": "dsl_dataset_user_release",
+      "code": "dsl_dataset_user_release(nvlist_t *holds, nvlist_t *errlist)"
+     }
+    },
+    {
+     "name": "dsl_dataset_user_release_impl",
+     "ref": {
+      "file": "module/zfs/dsl_userhold.c",
+      "line": 572,
+      "symbol": "dsl_dataset_user_release_impl",
+      "code": "dsl_dataset_user_release_impl(nvlist_t *holds, nvlist_t *errlist,"
+     }
+    }
+   ],
+   "role": "The open-context DSL function behind each ioctl. Each runs its change as a sync task. All snapshots of one request are created in one sync task, all or nothing; dsl_destroy_snapshots_nvl() destroys snapshots one sync task at a time. On pools without async_destroy, dsl_destroy_head() first frees the file system's objects in open context.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "sync_task",
+   "group": "entry",
+   "sub": 0,
+   "title": "dsl_sync_task()",
+   "ctx": "syscall",
+   "src": "module/zfs/dsl_synctask.c",
+   "fns": [
+    {
+     "name": "dsl_sync_task",
+     "ref": {
+      "file": "module/zfs/dsl_synctask.c",
+      "line": 126,
+      "symbol": "dsl_sync_task",
+      "code": "dsl_sync_task(const char *pool, dsl_checkfunc_t *checkfunc,"
+     }
+    },
+    {
+     "name": "dsl_sync_task_common",
+     "ref": {
+      "file": "module/zfs/dsl_synctask.c",
+      "line": 34,
+      "symbol": "dsl_sync_task_common",
+      "code": "dsl_sync_task_common(const char *pool, dsl_checkfunc_t *checkfunc,"
+     }
+    },
+    {
+     "name": "dsl_sync_task_sync",
+     "ref": {
+      "file": "module/zfs/dsl_synctask.c",
+      "line": 207,
+      "symbol": "dsl_sync_task_sync",
+      "code": "dsl_sync_task_sync(dsl_sync_task_t *dst, dmu_tx_t *tx)"
+     }
+    }
+   ],
+   "role": "Runs a metadata change in syncing context. The check function runs once in open context as a quick test, the task is queued on the open txg, and the caller waits until that txg has synced. In syncing context dsl_sync_task_sync() checks pool space, re-runs the check with the pool config lock held as writer, and then calls the sync function.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "dmu_tx",
+   "group": "entry",
+   "sub": 0,
+   "title": "dmu_tx (transaction)",
+   "ctx": "open",
+   "src": "module/zfs/dmu_tx.c",
+   "fns": [
+    {
+     "name": "dmu_tx_create_dd",
+     "ref": {
+      "file": "module/zfs/dmu_tx.c",
+      "line": 58,
+      "symbol": "dmu_tx_create_dd",
+      "code": "dmu_tx_create_dd(dsl_dir_t *dd)"
+     }
+    },
+    {
+     "name": "dmu_tx_assign",
+     "ref": {
+      "file": "module/zfs/dmu_tx.c",
+      "line": 1239,
+      "symbol": "dmu_tx_assign",
+      "code": "dmu_tx_assign(dmu_tx_t *tx, dmu_tx_flag_t flags)"
+     }
+    },
+    {
+     "name": "dmu_tx_commit",
+     "ref": {
+      "file": "module/zfs/dmu_tx.c",
+      "line": 1454,
+      "symbol": "dmu_tx_commit",
+      "code": "dmu_tx_commit(dmu_tx_t *tx)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. Here a transaction on the MOS directory only pins the sync task to the currently open txg.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "txg_sync",
+   "group": "txg",
+   "sub": 0,
+   "title": "TXG: syncing (txg_sync_thread)",
+   "ctx": "thr",
+   "src": "module/zfs/txg.c",
+   "fns": [
+    {
+     "name": "txg_sync_thread",
+     "ref": {
+      "file": "module/zfs/txg.c",
+      "line": 510,
+      "symbol": "txg_sync_thread",
+      "code": "txg_sync_thread(void *arg)"
+     }
+    },
+    {
+     "name": "txg_wait_synced",
+     "ref": {
+      "file": "module/zfs/txg.c",
+      "line": 764,
+      "symbol": "txg_wait_synced",
+      "code": "txg_wait_synced(dsl_pool_t *dp, uint64_t txg)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. Syncs the txg the sync task joined. txg_wait_synced() is why zfs snapshot, destroy and rollback return only once the change is on disk (the space a destroy frees comes back later).",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "spa_sync",
+   "group": "txg",
+   "sub": 0,
+   "title": "spa_sync()",
+   "ctx": "sync",
+   "src": "module/zfs/spa.c",
+   "fns": [
+    {
+     "name": "spa_sync",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 11405,
+      "symbol": "spa_sync",
+      "code": "spa_sync(spa_t *spa, uint64_t txg)"
+     }
+    },
+    {
+     "name": "spa_sync_iterate_to_convergence",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 11192,
+      "symbol": "spa_sync_iterate_to_convergence",
+      "code": "spa_sync_iterate_to_convergence(spa_t *spa, dmu_tx_t *tx)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. Each sync pass runs dsl_pool_sync(); after it, dsl_scan_sync() does background frees (in pass 1 only).",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "dsl_pool_sync",
+   "group": "txg",
+   "sub": 0,
+   "title": "dsl_pool_sync()",
+   "ctx": "sync",
+   "src": "module/zfs/dsl_pool.c",
+   "fns": [
+    {
+     "name": "dsl_pool_sync",
+     "ref": {
+      "file": "module/zfs/dsl_pool.c",
+      "line": 700,
+      "symbol": "dsl_pool_sync",
+      "code": "dsl_pool_sync(dsl_pool_t *dp, uint64_t txg)"
+     }
+    },
+    {
+     "name": "dsl_dataset_sync",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 2133,
+      "symbol": "dsl_dataset_sync",
+      "code": "dsl_dataset_sync(dsl_dataset_t *ds, zio_t *rio, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_dataset_sync_done",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 2391,
+      "symbol": "dsl_dataset_sync_done",
+      "code": "dsl_dataset_sync_done(dsl_dataset_t *ds, dmu_tx_t *tx)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. Writes the dirty datasets first, then (dsl_dataset_sync_done()) applies their space deltas and moves pending deadlist and livelist entries to disk, and only then runs the queued sync tasks. A snapshot taken in txg N therefore contains every write of txg N.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "dnode_sync",
+   "group": "txg",
+   "sub": 0,
+   "title": "dnode_sync()",
+   "ctx": "sync",
+   "src": "module/zfs/dnode_sync.c",
+   "fns": [
+    {
+     "name": "dnode_sync",
+     "ref": {
+      "file": "module/zfs/dnode_sync.c",
+      "line": 685,
+      "symbol": "dnode_sync",
+      "code": "dnode_sync(dnode_t *dn, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dnode_sync_free_ranges",
+     "ref": {
+      "file": "module/zfs/dnode_sync.c",
+      "line": 647,
+      "symbol": "dnode_sync_free_ranges",
+      "code": "dnode_sync_free_ranges(dnode_t *dn, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "free_blocks",
+     "ref": {
+      "file": "module/zfs/dnode_sync.c",
+      "line": 125,
+      "symbol": "free_blocks",
+      "code": "free_blocks(dnode_t *dn, blkptr_t *bp, int num, dmu_tx_t *tx)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. For an object with freed ranges (a removed file is freed as one whole range, also truncate and hole punching), dnode_sync_free_ranges() walks the range and free_blocks() kills every block pointer in it.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "dbuf_write_cb",
+   "group": "txg",
+   "sub": 0,
+   "title": "dbuf_write_ready() / _done()",
+   "ctx": "int",
+   "src": "module/zfs/dbuf.c",
+   "fns": [
+    {
+     "name": "dbuf_write_done",
+     "ref": {
+      "file": "module/zfs/dbuf.c",
+      "line": 5213,
+      "symbol": "dbuf_write_done",
+      "code": "dbuf_write_done(zio_t *zio, arc_buf_t *buf, void *vdb)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. When a block's new copy has been written, dbuf_write_done() retires the copy it replaces: dsl_dataset_block_kill() for the old block pointer, dsl_dataset_block_born() for the new one. Nop-writes and in-place rewrites skip both.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "snap_sync",
+   "group": "ops",
+   "sub": 0,
+   "title": "Snapshot create",
+   "ctx": "sync",
+   "src": "module/zfs/dsl_dataset.c",
+   "fns": [
+    {
+     "name": "dsl_dataset_snapshot_sync",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 1917,
+      "symbol": "dsl_dataset_snapshot_sync",
+      "code": "dsl_dataset_snapshot_sync(void *arg, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_dataset_snapshot_check",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 1593,
+      "symbol": "dsl_dataset_snapshot_check",
+      "code": "dsl_dataset_snapshot_check(void *arg, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_dataset_snapshot_check_impl",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 1534,
+      "symbol": "dsl_dataset_snapshot_check_impl",
+      "code": "dsl_dataset_snapshot_check_impl(dsl_dataset_t *ds, const char *snapname,"
+     }
+    },
+    {
+     "name": "dsl_dataset_snapshot_sync_impl",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 1736,
+      "symbol": "dsl_dataset_snapshot_sync_impl",
+      "code": "dsl_dataset_snapshot_sync_impl(dsl_dataset_t *ds, const char *snapname,"
+     }
+    }
+   ],
+   "role": "Creates the snapshot record. The check refuses a second snapshot of the same dataset in one txg (EAGAIN, and the task is retried later), an existing name, and a dataset that is being received into. The sync function points the snapshot at the head's current root block pointer, so a snapshot copies no data. Every snapshot of one request is created in the same txg.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "hold_sync",
+   "group": "ops",
+   "sub": 0,
+   "title": "User holds",
+   "ctx": "sync",
+   "src": "module/zfs/dsl_userhold.c",
+   "fns": [
+    {
+     "name": "dsl_dataset_user_hold_sync",
+     "ref": {
+      "file": "module/zfs/dsl_userhold.c",
+      "line": 265,
+      "symbol": "dsl_dataset_user_hold_sync",
+      "code": "dsl_dataset_user_hold_sync(void *arg, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_dataset_user_hold_sync_one_impl",
+     "ref": {
+      "file": "module/zfs/dsl_userhold.c",
+      "line": 146,
+      "symbol": "dsl_dataset_user_hold_sync_one_impl",
+      "code": "dsl_dataset_user_hold_sync_one_impl(nvlist_t *tmpholds, dsl_dataset_t *ds,"
+     }
+    },
+    {
+     "name": "dsl_dataset_user_release_check_one",
+     "ref": {
+      "file": "module/zfs/dsl_userhold.c",
+      "line": 361,
+      "symbol": "dsl_dataset_user_release_check_one",
+      "code": "dsl_dataset_user_release_check_one(dsl_dataset_user_release_arg_t *ddura,"
+     }
+    },
+    {
+     "name": "dsl_dataset_user_release_sync",
+     "ref": {
+      "file": "module/zfs/dsl_userhold.c",
+      "line": 522,
+      "symbol": "dsl_dataset_user_release_sync",
+      "code": "dsl_dataset_user_release_sync(void *arg, dmu_tx_t *tx)"
+     }
+    }
+   ],
+   "role": "zfs hold adds a named tag to the snapshot's userrefs ZAP and counts it in ds_userrefs. A held snapshot cannot be destroyed; zfs destroy -d marks it instead, and releasing the last hold of a marked snapshot that has no clones and is not in use destroys it in the same sync task (a mounted one is left to the deferred-destroy sweep).",
+   "tunables": [],
+   "props": [
+    {
+     "name": "userrefs",
+     "ref": {
+      "file": "module/zcommon/zfs_prop.c",
+      "line": 660,
+      "symbol": "\"userrefs\"",
+      "code": "zprop_register_number(ZFS_PROP_USERREFS, \"userrefs\", 0, PROP_READONLY,"
+     }
+    }
+   ]
+  },
+  {
+   "id": "destroy_snap",
+   "group": "ops",
+   "sub": 0,
+   "title": "Snapshot destroy",
+   "ctx": "sync",
+   "src": "module/zfs/dsl_destroy.c",
+   "fns": [
+    {
+     "name": "dsl_destroy_snapshot_sync_impl",
+     "ref": {
+      "file": "module/zfs/dsl_destroy.c",
+      "line": 307,
+      "symbol": "dsl_destroy_snapshot_sync_impl",
+      "code": "dsl_destroy_snapshot_sync_impl(dsl_dataset_t *ds, boolean_t defer, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_destroy_snapshot_check",
+     "ref": {
+      "file": "module/zfs/dsl_destroy.c",
+      "line": 91,
+      "symbol": "dsl_destroy_snapshot_check",
+      "code": "dsl_destroy_snapshot_check(void *arg, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_destroy_snapshot_check_impl",
+     "ref": {
+      "file": "module/zfs/dsl_destroy.c",
+      "line": 45,
+      "symbol": "dsl_destroy_snapshot_check_impl",
+      "code": "dsl_destroy_snapshot_check_impl(dsl_dataset_t *ds, boolean_t defer)"
+     }
+    },
+    {
+     "name": "dsl_destroy_snapshot_sync",
+     "ref": {
+      "file": "module/zfs/dsl_destroy.c",
+      "line": 579,
+      "symbol": "dsl_destroy_snapshot_sync",
+      "code": "dsl_destroy_snapshot_sync(void *arg, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_destroy_snapshot_deferred",
+     "ref": {
+      "file": "module/zfs/dsl_destroy.c",
+      "line": 749,
+      "symbol": "dsl_destroy_snapshot_deferred",
+      "code": "dsl_destroy_snapshot_deferred(const char *poolname)"
+     }
+    }
+   ],
+   "role": "Destroys one snapshot. Refused with EBUSY while user holds exist or the snapshot is in use, and with EEXIST while clones depend on it. With -d it is only marked defer_destroy; a snapshot kept only by its mount is destroyed later by dsl_destroy_snapshot_deferred() on the pool's async thread. Otherwise the next dataset (the following snapshot, or the head) inherits the snapshot's previous-snapshot txg, the deadlists are split and merged, and the record is removed.",
+   "tunables": [],
+   "props": [
+    {
+     "name": "defer_destroy",
+     "ref": {
+      "file": "module/zcommon/zfs_prop.c",
+      "line": 543,
+      "symbol": "\"defer_destroy\"",
+      "code": "zprop_register_index(ZFS_PROP_DEFER_DESTROY, \"defer_destroy\", 0,"
+     }
+    }
+   ]
+  },
+  {
+   "id": "destroy_head",
+   "group": "ops",
+   "sub": 0,
+   "title": "File system destroy",
+   "ctx": "sync",
+   "src": "module/zfs/dsl_destroy.c",
+   "fns": [
+    {
+     "name": "dsl_destroy_head_sync_impl",
+     "ref": {
+      "file": "module/zfs/dsl_destroy.c",
+      "line": 1064,
+      "symbol": "dsl_destroy_head_sync_impl",
+      "code": "dsl_destroy_head_sync_impl(dsl_dataset_t *ds, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_destroy_head_check_impl",
+     "ref": {
+      "file": "module/zfs/dsl_destroy.c",
+      "line": 819,
+      "symbol": "dsl_destroy_head_check_impl",
+      "code": "dsl_destroy_head_check_impl(dsl_dataset_t *ds, int expected_holds)"
+     }
+    },
+    {
+     "name": "dsl_destroy_head_sync",
+     "ref": {
+      "file": "module/zfs/dsl_destroy.c",
+      "line": 1234,
+      "symbol": "dsl_destroy_head_sync",
+      "code": "dsl_destroy_head_sync(void *arg, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_async_dataset_destroy",
+     "ref": {
+      "file": "module/zfs/dsl_destroy.c",
+      "line": 1015,
+      "symbol": "dsl_async_dataset_destroy",
+      "code": "dsl_async_dataset_destroy(dsl_dataset_t *ds, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_async_clone_destroy",
+     "ref": {
+      "file": "module/zfs/dsl_destroy.c",
+      "line": 956,
+      "symbol": "dsl_async_clone_destroy",
+      "code": "dsl_async_clone_destroy(dsl_dataset_t *ds, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "old_synchronous_dataset_destroy",
+     "ref": {
+      "file": "module/zfs/dsl_destroy.c",
+      "line": 790,
+      "symbol": "old_synchronous_dataset_destroy",
+      "code": "old_synchronous_dataset_destroy(dsl_dataset_t *ds, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "kill_blkptr",
+     "ref": {
+      "file": "module/zfs/dsl_destroy.c",
+      "line": 761,
+      "symbol": "kill_blkptr",
+      "code": "kill_blkptr(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,"
+     }
+    }
+   ],
+   "role": "Destroys a head dataset (file system or volume). Refused with EBUSY while it has snapshots of its own, and with EEXIST while it has child datasets. Its deadlist is discarded and its blocks are handed to one of three mechanisms: the bptree (async_destroy feature), the clone's livelist, or, on old pools, a traversal that kills every block in this txg.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "rollback_sync",
+   "group": "ops",
+   "sub": 0,
+   "title": "Rollback",
+   "ctx": "sync",
+   "src": "module/zfs/dsl_dataset.c",
+   "fns": [
+    {
+     "name": "dsl_dataset_rollback_sync",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 3428,
+      "symbol": "dsl_dataset_rollback_sync",
+      "code": "dsl_dataset_rollback_sync(void *arg, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_dataset_rollback_check",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 3300,
+      "symbol": "dsl_dataset_rollback_check",
+      "code": "dsl_dataset_rollback_check(void *arg, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_dataset_zero_zil",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 1305,
+      "symbol": "dsl_dataset_zero_zil",
+      "code": "dsl_dataset_zero_zil(dsl_dataset_t *ds, dmu_tx_t *tx)"
+     }
+    }
+   ],
+   "role": "Rolls a head back to its latest snapshot. The check requires the named target to be the latest snapshot (EEXIST otherwise), refuses when a bookmark is newer than it, and refuses a snapshot taken in the current txg (EAGAIN). The sync function never rewinds blocks in place: it builds a temporary clone of the snapshot, swaps it with the head, discards the intent log and destroys the clone.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "clone_swap",
+   "group": "ops",
+   "sub": 0,
+   "title": "Temporary clone + clone swap",
+   "ctx": "sync",
+   "src": "module/zfs/dsl_dataset.c",
+   "fns": [
+    {
+     "name": "dsl_dataset_clone_swap_sync_impl",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 4338,
+      "symbol": "dsl_dataset_clone_swap_sync_impl",
+      "code": "dsl_dataset_clone_swap_sync_impl(dsl_dataset_t *clone,"
+     }
+    },
+    {
+     "name": "dsl_dataset_create_sync",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 1326,
+      "symbol": "dsl_dataset_create_sync",
+      "code": "dsl_dataset_create_sync(dsl_dir_t *pdd, const char *lastname,"
+     }
+    },
+    {
+     "name": "dsl_dataset_create_sync_dd",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 1188,
+      "symbol": "dsl_dataset_create_sync_dd",
+      "code": "dsl_dataset_create_sync_dd(dsl_dir_t *dd, dsl_dataset_t *origin,"
+     }
+    }
+   ],
+   "role": "dsl_dataset_create_sync() creates the clone %rollback, whose root block pointer is the snapshot's and whose deadlist is empty. dsl_dataset_clone_swap_sync_impl() exchanges the two datasets' contents (root block pointers, deadlists, space counters) and drops both livelists, so the head keeps its name but has the snapshot's tree. The same swap finishes a zfs receive into an existing file system.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "bookmark_sync",
+   "group": "ops",
+   "sub": 0,
+   "title": "Bookmark create",
+   "ctx": "sync",
+   "src": "module/zfs/dsl_bookmark.c",
+   "fns": [
+    {
+     "name": "dsl_bookmark_create_sync",
+     "ref": {
+      "file": "module/zfs/dsl_bookmark.c",
+      "line": 597,
+      "symbol": "dsl_bookmark_create_sync",
+      "code": "dsl_bookmark_create_sync(void *arg, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_bookmark_create_check",
+     "ref": {
+      "file": "module/zfs/dsl_bookmark.c",
+      "line": 287,
+      "symbol": "dsl_bookmark_create_check",
+      "code": "dsl_bookmark_create_check(void *arg, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_bookmark_create_sync_impl_snap",
+     "ref": {
+      "file": "module/zfs/dsl_bookmark.c",
+      "line": 437,
+      "symbol": "dsl_bookmark_create_sync_impl_snap",
+      "code": "dsl_bookmark_create_sync_impl_snap(const char *bookmark, const char *snapshot,"
+     }
+    },
+    {
+     "name": "dsl_bookmark_set_phys",
+     "ref": {
+      "file": "module/zfs/dsl_bookmark.c",
+      "line": 341,
+      "symbol": "dsl_bookmark_set_phys",
+      "code": "dsl_bookmark_set_phys(zfs_bookmark_phys_t *zbm, dsl_dataset_t *snap)"
+     }
+    }
+   ],
+   "role": "Creates bookmarks from snapshots (or copies an existing bookmark, not drawn). dsl_bookmark_set_phys() records the snapshot's guid, creation txg and creation time and, with the bookmark_v2 and bookmark_written features, the IV set guid and space counters. A bookmark keeps no block alive.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "block_kill",
+   "group": "dead",
+   "sub": 0,
+   "title": "dsl_dataset_block_kill()",
+   "ctx": "any",
+   "src": "module/zfs/dsl_dataset.c",
+   "fns": [
+    {
+     "name": "dsl_dataset_block_kill",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 264,
+      "symbol": "dsl_dataset_block_kill",
+      "code": "dsl_dataset_block_kill(dsl_dataset_t *ds, const blkptr_t *bp, dmu_tx_t *tx,"
+     }
+    },
+    {
+     "name": "dsl_dataset_block_born",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 155,
+      "symbol": "dsl_dataset_block_born",
+      "code": "dsl_dataset_block_born(dsl_dataset_t *ds, const blkptr_t *bp, dmu_tx_t *tx)"
+     }
+    }
+   ],
+   "role": "The rule for a block the head no longer references. Born after the head's latest snapshot (birth > ds_prev_snap_txg): no snapshot can hold it, so it is freed in this txg (gang, dedup and possibly cloned blocks are queued on the pool free list instead). Otherwise the latest snapshot still references it, and it goes on the head's deadlist. dsl_dataset_block_born() does the accounting for the new block.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "deadlist",
+   "group": "dead",
+   "sub": 0,
+   "title": "Deadlist (dsl_deadlist)",
+   "ctx": "sync",
+   "src": "module/zfs/dsl_deadlist.c",
+   "fns": [
+    {
+     "name": "dsl_deadlist_insert",
+     "ref": {
+      "file": "module/zfs/dsl_deadlist.c",
+      "line": 461,
+      "symbol": "dsl_deadlist_insert",
+      "code": "dsl_deadlist_insert(dsl_deadlist_t *dl, const blkptr_t *bp, boolean_t bp_freed,"
+     }
+    },
+    {
+     "name": "dsl_deadlist_insert_alloc_cb",
+     "ref": {
+      "file": "module/zfs/dsl_deadlist.c",
+      "line": 503,
+      "symbol": "dsl_deadlist_insert_alloc_cb",
+      "code": "dsl_deadlist_insert_alloc_cb(void *arg, const blkptr_t *bp, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_deadlist_clone",
+     "ref": {
+      "file": "module/zfs/dsl_deadlist.c",
+      "line": 708,
+      "symbol": "dsl_deadlist_clone",
+      "code": "dsl_deadlist_clone(dsl_deadlist_t *dl, uint64_t maxtxg,"
+     }
+    },
+    {
+     "name": "dsl_deadlist_add_key",
+     "ref": {
+      "file": "module/zfs/dsl_deadlist.c",
+      "line": 523,
+      "symbol": "dsl_deadlist_add_key",
+      "code": "dsl_deadlist_add_key(dsl_deadlist_t *dl, uint64_t mintxg, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_deadlist_remove_key",
+     "ref": {
+      "file": "module/zfs/dsl_deadlist.c",
+      "line": 550,
+      "symbol": "dsl_deadlist_remove_key",
+      "code": "dsl_deadlist_remove_key(dsl_deadlist_t *dl, uint64_t mintxg, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_deadlist_free",
+     "ref": {
+      "file": "module/zfs/dsl_deadlist.c",
+      "line": 385,
+      "symbol": "dsl_deadlist_free",
+      "code": "dsl_deadlist_free(objset_t *os, uint64_t dlobj, dmu_tx_t *tx)"
+     }
+    }
+   ],
+   "role": "Each dataset has one: the blocks its previous snapshot references but it does not. They died after that snapshot was taken, so they were born at or before it, and that snapshot still holds them. It is a ZAP of sub-lists (each a bpobj) keyed by txg; a block goes into the sub-list with the largest key below its birth txg, so each sub-list holds the blocks born in one interval between snapshots. A new snapshot keeps the head's deadlist, and the head starts a new, empty one.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "deadlist_split",
+   "group": "dead",
+   "sub": 0,
+   "title": "Deadlist split and merge",
+   "ctx": "sync",
+   "src": "module/zfs/dsl_deadlist.c",
+   "fns": [
+    {
+     "name": "dsl_deadlist_move_bpobj",
+     "ref": {
+      "file": "module/zfs/dsl_deadlist.c",
+      "line": 931,
+      "symbol": "dsl_deadlist_move_bpobj",
+      "code": "dsl_deadlist_move_bpobj(dsl_deadlist_t *dl, bpobj_t *bpo, uint64_t mintxg,"
+     }
+    },
+    {
+     "name": "dsl_deadlist_merge",
+     "ref": {
+      "file": "module/zfs/dsl_deadlist.c",
+      "line": 867,
+      "symbol": "dsl_deadlist_merge",
+      "code": "dsl_deadlist_merge(dsl_deadlist_t *dl, uint64_t obj, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_deadlist_insert_bpobj",
+     "ref": {
+      "file": "module/zfs/dsl_deadlist.c",
+      "line": 803,
+      "symbol": "dsl_deadlist_insert_bpobj",
+      "code": "dsl_deadlist_insert_bpobj(dsl_deadlist_t *dl, uint64_t obj, uint64_t birth,"
+     }
+    },
+    {
+     "name": "dsl_deadlist_space_range",
+     "ref": {
+      "file": "module/zfs/dsl_deadlist.c",
+      "line": 764,
+      "symbol": "dsl_deadlist_space_range",
+      "code": "dsl_deadlist_space_range(dsl_deadlist_t *dl, uint64_t mintxg, uint64_t maxtxg,"
+     }
+    }
+   ],
+   "role": "Snapshot destroy on the deadlists. In the next dataset's deadlist, the sub-lists keyed at or above the destroyed snapshot's previous-snapshot txg hold blocks that only the destroyed snapshot referenced; they move whole to the pool free list. The other sub-lists stay, and the destroyed snapshot's own deadlist is merged in. dsl_deadlist_space_range() sums a birth range for the accounting.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "ds_space",
+   "group": "dead",
+   "sub": 0,
+   "title": "Space accounting (used, unique, usedbysnapshots)",
+   "ctx": "sync",
+   "src": "module/zfs/dsl_dataset.c",
+   "fns": [
+    {
+     "name": "dsl_dataset_apply_deltas",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 2330,
+      "symbol": "dsl_dataset_apply_deltas",
+      "code": "dsl_dataset_apply_deltas(dsl_dataset_t *ds, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_dir_diduse_transfer_space",
+     "ref": {
+      "file": "module/zfs/dsl_dir.c",
+      "line": 1704,
+      "symbol": "dsl_dir_diduse_transfer_space",
+      "code": "dsl_dir_diduse_transfer_space(dsl_dir_t *dd, int64_t used,"
+     }
+    },
+    {
+     "name": "dsl_dir_transfer_space",
+     "ref": {
+      "file": "module/zfs/dsl_dir.c",
+      "line": 1630,
+      "symbol": "dsl_dir_transfer_space",
+      "code": "dsl_dir_transfer_space(dsl_dir_t *dd, int64_t delta,"
+     }
+    },
+    {
+     "name": "dsl_dir_diduse_space",
+     "ref": {
+      "file": "module/zfs/dsl_dir.c",
+      "line": 1622,
+      "symbol": "dsl_dir_diduse_space",
+      "code": "dsl_dir_diduse_space(dsl_dir_t *dd, dd_used_t type, int64_t used,"
+     }
+    },
+    {
+     "name": "dsl_dataset_recalc_head_uniq",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 1408,
+      "symbol": "dsl_dataset_recalc_head_uniq",
+      "code": "dsl_dataset_recalc_head_uniq(dsl_dataset_t *ds)"
+     }
+    },
+    {
+     "name": "dsl_get_used",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 2666,
+      "symbol": "dsl_get_used",
+      "code": "dsl_get_used(dsl_dataset_t *ds)"
+     }
+    }
+   ],
+   "role": "A snapshot's used is its unique bytes: space that only it references, which destroying it alone would free. Deadlisted blocks are charged to the file system's usedbysnapshots instead of usedbydataset. Deltas collected while blocks are killed are applied once per txg by dsl_dataset_apply_deltas().",
+   "tunables": [],
+   "props": [
+    {
+     "name": "used",
+     "ref": {
+      "file": "module/zcommon/zfs_prop.c",
+      "line": 626,
+      "symbol": "\"used\"",
+      "code": "zprop_register_number(ZFS_PROP_USED, \"used\", 0, PROP_READONLY,"
+     }
+    },
+    {
+     "name": "referenced",
+     "ref": {
+      "file": "module/zcommon/zfs_prop.c",
+      "line": 631,
+      "symbol": "\"referenced\"",
+      "code": "zprop_register_number(ZFS_PROP_REFERENCED, \"referenced\", 0,"
+     }
+    },
+    {
+     "name": "usedbydataset",
+     "ref": {
+      "file": "module/zcommon/zfs_prop.c",
+      "line": 650,
+      "symbol": "\"usedbydataset\"",
+      "code": "zprop_register_number(ZFS_PROP_USEDDS, \"usedbydataset\", 0,"
+     }
+    },
+    {
+     "name": "usedbysnapshots",
+     "ref": {
+      "file": "module/zcommon/zfs_prop.c",
+      "line": 647,
+      "symbol": "\"usedbysnapshots\"",
+      "code": "zprop_register_number(ZFS_PROP_USEDSNAP, \"usedbysnapshots\", 0,"
+     }
+    }
+   ]
+  },
+  {
+   "id": "bookmarks",
+   "group": "dead",
+   "sub": 1,
+   "title": "Bookmarks (#name)",
+   "ctx": "any",
+   "src": "module/zfs/dsl_bookmark.c",
+   "fns": [
+    {
+     "name": "dsl_bookmark_node_add",
+     "ref": {
+      "file": "module/zfs/dsl_bookmark.c",
+      "line": 389,
+      "symbol": "dsl_bookmark_node_add",
+      "code": "dsl_bookmark_node_add(dsl_dataset_t *hds, dsl_bookmark_node_t *dbn,"
+     }
+    },
+    {
+     "name": "dsl_bookmark_snapshotted",
+     "ref": {
+      "file": "module/zfs/dsl_bookmark.c",
+      "line": 1403,
+      "symbol": "dsl_bookmark_snapshotted",
+      "code": "dsl_bookmark_snapshotted(dsl_dataset_t *ds, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_bookmark_block_killed",
+     "ref": {
+      "file": "module/zfs/dsl_bookmark.c",
+      "line": 1500,
+      "symbol": "dsl_bookmark_block_killed",
+      "code": "dsl_bookmark_block_killed(dsl_dataset_t *ds, const blkptr_t *bp, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_bookmark_sync_done",
+     "ref": {
+      "file": "module/zfs/dsl_bookmark.c",
+      "line": 1540,
+      "symbol": "dsl_bookmark_sync_done",
+      "code": "dsl_bookmark_sync_done(dsl_dataset_t *ds, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_bookmark_ds_destroyed",
+     "ref": {
+      "file": "module/zfs/dsl_bookmark.c",
+      "line": 1301,
+      "symbol": "dsl_bookmark_ds_destroyed",
+      "code": "dsl_bookmark_ds_destroyed(dsl_dataset_t *ds, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_bookmark_latest_txg",
+     "ref": {
+      "file": "module/zfs/dsl_bookmark.c",
+      "line": 1583,
+      "symbol": "dsl_bookmark_latest_txg",
+      "code": "dsl_bookmark_latest_txg(dsl_dataset_t *ds)"
+     }
+    }
+   ],
+   "role": "The head's bookmarks. A bookmark holds a snapshot's guid and creation txg (optionally a redaction list) but references no blocks, so it costs no space and can be the incremental source of zfs send after its snapshot is gone. With the bookmark_written feature it also counts the space freed since it was taken, for the written#bookmark property, and keeps a deadlist key at its txg.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "livelist",
+   "group": "dead",
+   "sub": 1,
+   "title": "Clone livelist",
+   "ctx": "sync",
+   "src": "module/zfs/dsl_dataset.c",
+   "fns": [
+    {
+     "name": "dsl_flush_pending_livelist",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 2263,
+      "symbol": "dsl_flush_pending_livelist",
+      "code": "dsl_flush_pending_livelist(dsl_dataset_t *ds, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_livelist_should_disable",
+     "ref": {
+      "file": "module/zfs/dsl_dataset.c",
+      "line": 2170,
+      "symbol": "dsl_livelist_should_disable",
+      "code": "dsl_livelist_should_disable(dsl_dataset_t *ds)"
+     }
+    },
+    {
+     "name": "dsl_dir_remove_livelist",
+     "ref": {
+      "file": "module/zfs/dsl_dir.c",
+      "line": 2384,
+      "symbol": "dsl_dir_remove_livelist",
+      "code": "dsl_dir_remove_livelist(dsl_dir_t *dd, dmu_tx_t *tx, boolean_t total)"
+     }
+    }
+   ],
+   "role": "A clone created while the livelist feature is enabled logs every block born after its origin: ALLOC when written, FREE when killed, in sub-lists of about zfs_livelist_max_entries entries. Destroying the clone then frees the unmatched ALLOCs without walking its tree. The livelist is dropped when the clone shares zfs_livelist_min_percent_shared percent or less of its space with the origin, on promote, and on a clone swap.",
+   "tunables": [
+    {
+     "name": "zfs_livelist_max_entries",
+     "ref": {
+      "file": "module/zfs/dsl_deadlist.c",
+      "line": 1114,
+      "symbol": "max_entries",
+      "code": "ZFS_MODULE_PARAM(zfs_livelist, zfs_livelist_, max_entries, U64, ZMOD_RW,"
+     }
+    },
+    {
+     "name": "zfs_livelist_min_percent_shared",
+     "ref": {
+      "file": "module/zfs/dsl_deadlist.c",
+      "line": 1117,
+      "symbol": "min_percent_shared",
+      "code": "ZFS_MODULE_PARAM(zfs_livelist, zfs_livelist_, min_percent_shared, INT, ZMOD_RW,"
+     }
+    }
+   ],
+   "props": []
+  },
+  {
+   "id": "free_bpobj",
+   "group": "dead",
+   "sub": 1,
+   "title": "Pool free list (dp_free_bpobj)",
+   "ctx": "sync",
+   "src": "module/zfs/bpobj.c",
+   "fns": [
+    {
+     "name": "bpobj_enqueue",
+     "ref": {
+      "file": "module/zfs/bpobj.c",
+      "line": 862,
+      "symbol": "bpobj_enqueue",
+      "code": "bpobj_enqueue(bpobj_t *bpo, const blkptr_t *bp, boolean_t bp_freed,"
+     }
+    },
+    {
+     "name": "bpobj_enqueue_subobj",
+     "ref": {
+      "file": "module/zfs/bpobj.c",
+      "line": 663,
+      "symbol": "bpobj_enqueue_subobj",
+      "code": "bpobj_enqueue_subobj(bpobj_t *bpo, uint64_t subobj, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "bpobj_iterate",
+     "ref": {
+      "file": "module/zfs/bpobj.c",
+      "line": 534,
+      "symbol": "bpobj_iterate",
+      "code": "bpobj_iterate(bpobj_t *bpo, bpobj_itor_t func, void *arg, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "bpobj_space",
+     "ref": {
+      "file": "module/zfs/bpobj.c",
+      "line": 961,
+      "symbol": "bpobj_space",
+      "code": "bpobj_space(bpobj_t *bpo, uint64_t *usedp, uint64_t *compp, uint64_t *uncompp)"
+     }
+    }
+   ],
+   "role": "The pool-wide list of blocks waiting to be freed in the background. A snapshot destroy moves whole deadlist sub-lists here (bpobj_enqueue_subobj(), no per-block work in that txg); block kills park gang, dedup and cloned blocks here. Its space is counted in the freeing pool property.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "bptree",
+   "group": "dead",
+   "sub": 1,
+   "title": "Async-destroy queue (bptree)",
+   "ctx": "sync",
+   "src": "module/zfs/bptree.c",
+   "fns": [
+    {
+     "name": "bptree_add",
+     "ref": {
+      "file": "module/zfs/bptree.c",
+      "line": 110,
+      "symbol": "bptree_add",
+      "code": "bptree_add(objset_t *os, uint64_t obj, blkptr_t *bp, uint64_t birth_txg,"
+     }
+    },
+    {
+     "name": "bptree_alloc",
+     "ref": {
+      "file": "module/zfs/bptree.c",
+      "line": 51,
+      "symbol": "bptree_alloc",
+      "code": "bptree_alloc(objset_t *os, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "bptree_iterate",
+     "ref": {
+      "file": "module/zfs/bptree.c",
+      "line": 180,
+      "symbol": "bptree_iterate",
+      "code": "bptree_iterate(objset_t *os, uint64_t obj, boolean_t free, bptree_itor_t func,"
+     }
+    },
+    {
+     "name": "bptree_visit_cb",
+     "ref": {
+      "file": "module/zfs/bptree.c",
+      "line": 143,
+      "symbol": "bptree_visit_cb",
+      "code": "bptree_visit_cb(spa_t *spa, zilog_t *zilog, const blkptr_t *bp,"
+     }
+    },
+    {
+     "name": "bptree_is_empty",
+     "ref": {
+      "file": "module/zfs/bptree.c",
+      "line": 96,
+      "symbol": "bptree_is_empty",
+      "code": "bptree_is_empty(objset_t *os, uint64_t obj)"
+     }
+    }
+   ],
+   "role": "One entry per destroyed head: its root block pointer, the birth txg at or below which blocks belong to an origin snapshot, and a bookmark to resume the traversal from. Created on first use, which activates the async_destroy feature; freed, and the feature deactivated, when it is empty again.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "bg_scan",
+   "group": "bg",
+   "sub": 0,
+   "title": "dsl_scan_sync() (free work)",
+   "ctx": "sync",
+   "src": "module/zfs/dsl_scan.c",
+   "fns": [
+    {
+     "name": "dsl_scan_sync",
+     "ref": {
+      "file": "module/zfs/dsl_scan.c",
+      "line": 4514,
+      "symbol": "dsl_scan_sync",
+      "code": "dsl_scan_sync(dsl_pool_t *dp, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_scan_active",
+     "ref": {
+      "file": "module/zfs/dsl_scan.c",
+      "line": 3866,
+      "symbol": "dsl_scan_active",
+      "code": "dsl_scan_active(dsl_scan_t *scn)"
+     }
+    }
+   ],
+   "role": "Called once per txg from spa_sync() and active only in sync pass 1 (and not in the first few txgs after import). Before any scrub or resilver work it calls dsl_process_async_destroys() when dsl_scan_active() reports pending frees.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "async_destroy",
+   "group": "bg",
+   "sub": 0,
+   "title": "dsl_process_async_destroys()",
+   "ctx": "sync",
+   "src": "module/zfs/dsl_scan.c",
+   "fns": [
+    {
+     "name": "dsl_process_async_destroys",
+     "ref": {
+      "file": "module/zfs/dsl_scan.c",
+      "line": 3972,
+      "symbol": "dsl_process_async_destroys",
+      "code": "dsl_process_async_destroys(dsl_pool_t *dp, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "bpobj_dsl_scan_free_block_cb",
+     "ref": {
+      "file": "module/zfs/dsl_scan.c",
+      "line": 3840,
+      "symbol": "bpobj_dsl_scan_free_block_cb",
+      "code": "bpobj_dsl_scan_free_block_cb(void *arg, const blkptr_t *bp, boolean_t bp_freed,"
+     }
+    },
+    {
+     "name": "dsl_scan_free_block_cb",
+     "ref": {
+      "file": "module/zfs/dsl_scan.c",
+      "line": 3751,
+      "symbol": "dsl_scan_free_block_cb",
+      "code": "dsl_scan_free_block_cb(void *arg, const blkptr_t *bp, dmu_tx_t *tx)"
+     }
+    },
+    {
+     "name": "dsl_scan_async_block_should_pause",
+     "ref": {
+      "file": "module/zfs/dsl_scan.c",
+      "line": 3712,
+      "symbol": "dsl_scan_async_block_should_pause",
+      "code": "dsl_scan_async_block_should_pause(dsl_scan_t *scn)"
+     }
+    }
+   ],
+   "role": "Frees queued blocks within a budget per txg: first the pool free list, then the bptree. Each freed block is subtracted from the freeing pool property. It stops for this txg when dsl_scan_async_block_should_pause() says so, so a large destroy is spread over many txgs and space returns gradually.",
+   "tunables": [
+    {
+     "name": "zfs_free_min_time_ms",
+     "ref": {
+      "file": "module/zfs/dsl_scan.c",
+      "line": 5524,
+      "symbol": "free_min_time_ms",
+      "code": "ZFS_MODULE_PARAM(zfs, zfs_, free_min_time_ms, UINT, ZMOD_RW,"
+     }
+    },
+    {
+     "name": "zfs_async_block_max_blocks",
+     "ref": {
+      "file": "module/zfs/dsl_scan.c",
+      "line": 5539,
+      "symbol": "async_block_max_blocks",
+      "code": "ZFS_MODULE_PARAM(zfs, zfs_, async_block_max_blocks, U64, ZMOD_RW,"
+     }
+    },
+    {
+     "name": "zfs_max_async_dedup_frees",
+     "ref": {
+      "file": "module/zfs/dsl_scan.c",
+      "line": 5542,
+      "symbol": "max_async_dedup_frees",
+      "code": "ZFS_MODULE_PARAM(zfs, zfs_, max_async_dedup_frees, U64, ZMOD_RW,"
+     }
+    },
+    {
+     "name": "zfs_free_bpobj_enabled",
+     "ref": {
+      "file": "module/zfs/dsl_scan.c",
+      "line": 5548,
+      "symbol": "free_bpobj_enabled",
+      "code": "ZFS_MODULE_PARAM(zfs, zfs_, free_bpobj_enabled, INT, ZMOD_RW,"
+     }
+    }
+   ],
+   "props": [
+    {
+     "name": "freeing",
+     "ref": {
+      "file": "module/zcommon/zpool_prop.c",
+      "line": 117,
+      "symbol": "\"freeing\"",
+      "code": "zprop_register_number(ZPOOL_PROP_FREEING, \"freeing\", 0, PROP_READONLY,"
+     }
+    }
+   ]
+  },
+  {
+   "id": "traverse_destroy",
+   "group": "bg",
+   "sub": 0,
+   "title": "traverse_dataset_destroyed()",
+   "ctx": "sync",
+   "src": "module/zfs/dmu_traverse.c",
+   "fns": [
+    {
+     "name": "traverse_dataset_destroyed",
+     "ref": {
+      "file": "module/zfs/dmu_traverse.c",
+      "line": 748,
+      "symbol": "traverse_dataset_destroyed",
+      "code": "traverse_dataset_destroyed(spa_t *spa, blkptr_t *blkptr,"
+     }
+    },
+    {
+     "name": "traverse_visitbp",
+     "ref": {
+      "file": "module/zfs/dmu_traverse.c",
+      "line": 226,
+      "symbol": "traverse_visitbp",
+      "code": "traverse_visitbp(traverse_data_t *td, const dnode_phys_t *dnp,"
+     }
+    }
+   ],
+   "role": "Walks a destroyed dataset's block tree from its root block pointer, children before parents, and visits only blocks born after the entry's birth txg; an older block belongs to the origin snapshot and is skipped with everything below it. Starts from the bookmark saved in the bptree entry.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "livelist_del",
+   "group": "bg",
+   "sub": 0,
+   "title": "Livelist delete thread",
+   "ctx": "thr",
+   "src": "module/zfs/spa.c",
+   "fns": [
+    {
+     "name": "spa_livelist_delete_cb",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 3396,
+      "symbol": "spa_livelist_delete_cb",
+      "code": "spa_livelist_delete_cb(void *arg, zthr_t *z)"
+     }
+    },
+    {
+     "name": "dsl_process_sub_livelist",
+     "ref": {
+      "file": "module/zfs/dsl_deadlist.c",
+      "line": 1089,
+      "symbol": "dsl_process_sub_livelist",
+      "code": "dsl_process_sub_livelist(bpobj_t *bpobj, bplist_t *to_free, zthr_t *t,"
+     }
+    },
+    {
+     "name": "delete_blkptr_cb",
+     "ref": {
+      "file": "module/zfs/spa.c",
+      "line": 3308,
+      "symbol": "delete_blkptr_cb",
+      "code": "delete_blkptr_cb(void *arg, const blkptr_t *bp, dmu_tx_t *tx)"
+     }
+    }
+   ],
+   "role": "The z_livelist_destroy zthr. For each destroyed clone, one sub-list at a time: dsl_process_sub_livelist() cancels FREE entries against their ALLOCs, and a sync task frees the remaining ALLOCs.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "frees",
+   "group": "free",
+   "sub": 0,
+   "title": "Block frees",
+   "ctx": "sync",
+   "src": "module/zfs/zio.c",
+   "fns": [
+    {
+     "name": "dsl_free",
+     "ref": {
+      "file": "module/zfs/dsl_scan.c",
+      "line": 1578,
+      "symbol": "dsl_free",
+      "code": "dsl_free(dsl_pool_t *dp, uint64_t txg, const blkptr_t *bp)"
+     }
+    },
+    {
+     "name": "zio_free",
+     "ref": {
+      "file": "module/zfs/zio.c",
+      "line": 1435,
+      "symbol": "zio_free",
+      "code": "zio_free(spa_t *spa, uint64_t txg, const blkptr_t *bp)"
+     }
+    },
+    {
+     "name": "zio_free_sync",
+     "ref": {
+      "file": "module/zfs/zio.c",
+      "line": 1477,
+      "symbol": "zio_free_sync",
+      "code": "zio_free_sync(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. dsl_free() -> zio_free(): an ordinary block freed in the syncing txg normally goes straight to metaslab_free(); gang, dedup and possibly cloned blocks (and frees for another txg) wait on spa_free_bplist and become free zios. The background freeing code calls zio_free_sync() directly.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "zio_create",
+   "group": "free",
+   "sub": 0,
+   "title": "zio create + execute",
+   "ctx": "any",
+   "src": "module/zfs/zio.c",
+   "fns": [
+    {
+     "name": "zio_nowait",
+     "ref": {
+      "file": "module/zfs/zio.c",
+      "line": 2890,
+      "symbol": "zio_nowait",
+      "code": "zio_nowait(zio_t *zio)"
+     }
+    },
+    {
+     "name": "zio_wait",
+     "ref": {
+      "file": "module/zfs/zio.c",
+      "line": 2841,
+      "symbol": "zio_wait",
+      "code": "zio_wait(zio_t *zio)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. Builds and starts the ZIO_TYPE_FREE zio for a block that may need a read first (gang header, dedup table, block reference table).",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "st_free",
+   "group": "free",
+   "sub": 0,
+   "title": "FREE stages",
+   "ctx": "sync",
+   "src": "module/zfs/zio.c",
+   "fns": [
+    {
+     "name": "zio_free_bp_init",
+     "ref": {
+      "file": "module/zfs/zio.c",
+      "line": 2195,
+      "symbol": "zio_free_bp_init",
+      "code": "zio_free_bp_init(zio_t *zio)"
+     }
+    },
+    {
+     "name": "zio_brt_free",
+     "ref": {
+      "file": "module/zfs/zio.c",
+      "line": 3803,
+      "symbol": "zio_brt_free",
+      "code": "zio_brt_free(zio_t *zio)"
+     }
+    },
+    {
+     "name": "zio_ddt_free",
+     "ref": {
+      "file": "module/zfs/zio.c",
+      "line": 4628,
+      "symbol": "zio_ddt_free",
+      "code": "zio_ddt_free(zio_t *zio)"
+     }
+    },
+    {
+     "name": "zio_dva_free",
+     "ref": {
+      "file": "module/zfs/zio.c",
+      "line": 4955,
+      "symbol": "zio_dva_free",
+      "code": "zio_dva_free(zio_t *zio)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. A cloned block drops one BRT reference and a dedup block one DDT reference; only when none remain is the space returned to its metaslab.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "brt",
+   "group": "free",
+   "sub": 0,
+   "title": "Block reference table (BRT)",
+   "ctx": "any",
+   "src": "module/zfs/brt.c",
+   "fns": [
+    {
+     "name": "brt_maybe_exists",
+     "ref": {
+      "file": "module/zfs/brt.c",
+      "line": 905,
+      "symbol": "brt_maybe_exists",
+      "code": "brt_maybe_exists(spa_t *spa, const blkptr_t *bp)"
+     }
+    },
+    {
+     "name": "brt_entry_decref",
+     "ref": {
+      "file": "module/zfs/brt.c",
+      "line": 1077,
+      "symbol": "brt_entry_decref",
+      "code": "brt_entry_decref(spa_t *spa, const blkptr_t *bp)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. Extra reference counts for cloned blocks. brt_maybe_exists() is the cheap test that routes a free through the free pipeline; brt_entry_decref() decides whether the space is really released.",
+   "tunables": [],
+   "props": []
+  },
+  {
+   "id": "metaslab_free",
+   "group": "free",
+   "sub": 0,
+   "title": "metaslab_free()",
+   "ctx": "sync",
+   "src": "module/zfs/metaslab.c",
+   "fns": [
+    {
+     "name": "metaslab_free",
+     "ref": {
+      "file": "module/zfs/metaslab.c",
+      "line": 6216,
+      "symbol": "metaslab_free",
+      "code": "metaslab_free(spa_t *spa, const blkptr_t *bp, uint64_t txg, boolean_t now)"
+     }
+    },
+    {
+     "name": "metaslab_free_dva",
+     "ref": {
+      "file": "module/zfs/metaslab.c",
+      "line": 5915,
+      "symbol": "metaslab_free_dva",
+      "code": "metaslab_free_dva(spa_t *spa, const dva_t *dva, boolean_t checkpoint)"
+     }
+    }
+   ],
+   "role": "Shared with the I/O flow graph. Records the freed segments. They become allocatable only TXG_DEFER_SIZE (2) txgs later, so the last txgs on disk stay intact.",
+   "tunables": [],
+   "props": []
+  }
+ ],
+ "wires": [
+  {
+   "id": "E001",
+   "from": "zfs_cmd",
+   "to": "libzfs",
+   "type": "ctl",
+   "label": "zfs snapshot: zfs_do_snapshot() -> zfs_snapshot_nvl() -> lzc_snapshot(); with -r all descendants are in the same nvlist",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 4709,
+     "symbol": "zfs_snapshot_nvl",
+     "code": "ret = zfs_snapshot_nvl(g_zfs, sd.sd_nvl, props);"
+    },
+    {
+     "file": "lib/libzfs/libzfs_dataset.c",
+     "line": 4183,
+     "symbol": "lzc_snapshot",
+     "code": "ret = lzc_snapshot(snaps, props, &errors);"
+    }
+   ]
+  },
+  {
+   "id": "E002",
+   "from": "zfs_cmd",
+   "to": "libzfs",
+   "type": "ctl",
+   "label": "zfs destroy fs@snap (-d to defer): zfs_do_destroy() -> zfs_destroy_snaps_nvl() -> lzc_destroy_snaps()",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 1814,
+     "symbol": "zfs_destroy_snaps_nvl",
+     "code": "err = zfs_destroy_snaps_nvl(g_zfs, cb.cb_nvl,"
+    },
+    {
+     "file": "lib/libzfs/libzfs_dataset.c",
+     "line": 3909,
+     "symbol": "lzc_destroy_snaps",
+     "code": "ret = lzc_destroy_snaps(snaps, defer, &errlist);"
+    }
+   ]
+  },
+  {
+   "id": "E003",
+   "from": "zfs_cmd",
+   "to": "libzfs",
+   "type": "ctl",
+   "label": "zfs destroy fs: destroy_callback() first destroys the batched snapshots (destroy_batched()), then zfs_destroy() -> lzc_destroy()",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 1532,
+     "symbol": "destroy_batched",
+     "code": "error = destroy_batched(cb);"
+    },
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 1535,
+     "symbol": "zfs_destroy",
+     "code": "zfs_destroy(zhp, cb->cb_defer_destroy) != 0) {"
+    },
+    {
+     "file": "lib/libzfs/libzfs_dataset.c",
+     "line": 3834,
+     "symbol": "lzc_destroy",
+     "code": "error = lzc_destroy(zhp->zfs_name);"
+    }
+   ]
+  },
+  {
+   "id": "E004",
+   "from": "zfs_cmd",
+   "to": "libzfs",
+   "type": "ctl",
+   "label": "zfs rollback: zfs_do_rollback() -> zfs_rollback(), which destroys newer snapshots and bookmarks (rollback_destroy(), only allowed with -r), then lzc_rollback_to()",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 4492,
+     "symbol": "zfs_rollback",
+     "code": "ret = zfs_rollback(zhp, snap, force);"
+    },
+    {
+     "file": "lib/libzfs/libzfs_dataset.c",
+     "line": 4340,
+     "symbol": "rollback_destroy",
+     "code": "(void) zfs_iter_snapshots_v2(zhp, 0, rollback_destroy, &cb,"
+    },
+    {
+     "file": "lib/libzfs/libzfs_dataset.c",
+     "line": 4366,
+     "symbol": "lzc_rollback_to",
+     "code": "err = lzc_rollback_to(zhp->zfs_name, snap->zfs_name);"
+    }
+   ]
+  },
+  {
+   "id": "E005",
+   "from": "zfs_cmd",
+   "to": "libzfs",
+   "type": "ctl",
+   "label": "zfs bookmark fs@snap fs#mark: zfs_do_bookmark() -> lzc_bookmark()",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 8437,
+     "symbol": "lzc_bookmark",
+     "code": "ret = lzc_bookmark(nvl, &errlist);"
+    }
+   ]
+  },
+  {
+   "id": "E006",
+   "from": "zfs_cmd",
+   "to": "libzfs",
+   "type": "ctl",
+   "label": "zfs hold tag fs@snap: zfs_hold() -> zfs_hold_nvl() -> lzc_hold()",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 6727,
+     "symbol": "zfs_hold",
+     "code": "if (zfs_hold(zhp, delim+1, tag, recursive, -1) != 0)"
+    },
+    {
+     "file": "lib/libzfs/libzfs_dataset.c",
+     "line": 4956,
+     "symbol": "zfs_hold_nvl",
+     "code": "ret = zfs_hold_nvl(zhp, cleanup_fd, ha.nvl);"
+    },
+    {
+     "file": "lib/libzfs/libzfs_dataset.c",
+     "line": 4972,
+     "symbol": "lzc_hold",
+     "code": "ret = lzc_hold(holds, cleanup_fd, &errors);"
+    }
+   ]
+  },
+  {
+   "id": "E007",
+   "from": "zfs_cmd",
+   "to": "libzfs",
+   "type": "ctl",
+   "label": "zfs release tag fs@snap: zfs_release() -> lzc_release()",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 6730,
+     "symbol": "zfs_release",
+     "code": "if (zfs_release(zhp, delim+1, tag, recursive) != 0)"
+    },
+    {
+     "file": "lib/libzfs/libzfs_dataset.c",
+     "line": 5092,
+     "symbol": "lzc_release",
+     "code": "ret = lzc_release(ha.nvl, &errors);"
+    }
+   ]
+  },
+  {
+   "id": "E008",
+   "from": "libzfs",
+   "to": "zfs_ioctl",
+   "type": "ctl",
+   "label": "lzc_snapshot(): ZFS_IOC_SNAPSHOT -> zfs_ioc_snapshot()",
+   "refs": [
+    {
+     "file": "lib/libzfs_core/libzfs_core.c",
+     "line": 421,
+     "symbol": "ZFS_IOC_SNAPSHOT",
+     "code": "error = lzc_ioctl(ZFS_IOC_SNAPSHOT, pool, args, errlist);"
+    },
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 8007,
+     "symbol": "zfs_ioc_snapshot",
+     "code": "zfs_ioc_snapshot, zfs_secpolicy_snapshot, POOL_NAME,"
+    }
+   ]
+  },
+  {
+   "id": "E009",
+   "from": "libzfs",
+   "to": "zfs_ioctl",
+   "type": "ctl",
+   "label": "lzc_destroy_snaps(): ZFS_IOC_DESTROY_SNAPS -> zfs_ioc_destroy_snaps(), which first unmounts each snapshot (zfs_unmount_snap())",
+   "refs": [
+    {
+     "file": "lib/libzfs_core/libzfs_core.c",
+     "line": 471,
+     "symbol": "ZFS_IOC_DESTROY_SNAPS",
+     "code": "error = lzc_ioctl(ZFS_IOC_DESTROY_SNAPS, pool, args, errlist);"
+    },
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 8047,
+     "symbol": "zfs_ioc_destroy_snaps",
+     "code": "zfs_ioc_destroy_snaps, zfs_secpolicy_destroy_snaps, POOL_NAME,"
+    },
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 4427,
+     "symbol": "zfs_unmount_snap",
+     "code": "zfs_unmount_snap(nvpair_name(pair));"
+    }
+   ]
+  },
+  {
+   "id": "E010",
+   "from": "libzfs",
+   "to": "zfs_ioctl",
+   "type": "ctl",
+   "label": "lzc_destroy(): ZFS_IOC_DESTROY -> zfs_ioc_destroy()",
+   "refs": [
+    {
+     "file": "lib/libzfs_core/libzfs_core.c",
+     "line": 379,
+     "symbol": "ZFS_IOC_DESTROY",
+     "code": "error = lzc_ioctl(ZFS_IOC_DESTROY, fsname, args, NULL);"
+    },
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 8313,
+     "symbol": "zfs_ioc_destroy",
+     "code": "zfs_ioctl_register_dataset_modify(ZFS_IOC_DESTROY, zfs_ioc_destroy,"
+    }
+   ]
+  },
+  {
+   "id": "E011",
+   "from": "libzfs",
+   "to": "zfs_ioctl",
+   "type": "ctl",
+   "label": "lzc_rollback_to(): ZFS_IOC_ROLLBACK -> zfs_ioc_rollback(), which suspends a mounted file system (zfs_suspend_fs()) around the rollback",
+   "refs": [
+    {
+     "file": "lib/libzfs_core/libzfs_core.c",
+     "line": 1497,
+     "symbol": "ZFS_IOC_ROLLBACK",
+     "code": "err = lzc_ioctl(ZFS_IOC_ROLLBACK, fsname, args, &result);"
+    },
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 8066,
+     "symbol": "zfs_ioc_rollback",
+     "code": "zfs_ioc_rollback, zfs_secpolicy_rollback, DATASET_NAME,"
+    },
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 5144,
+     "symbol": "zfs_suspend_fs",
+     "code": "error = zfs_suspend_fs(zfsvfs);"
+    }
+   ]
+  },
+  {
+   "id": "E012",
+   "from": "libzfs",
+   "to": "zfs_ioctl",
+   "type": "ctl",
+   "label": "lzc_bookmark(): ZFS_IOC_BOOKMARK -> zfs_ioc_bookmark()",
+   "refs": [
+    {
+     "file": "lib/libzfs_core/libzfs_core.c",
+     "line": 1532,
+     "symbol": "ZFS_IOC_BOOKMARK",
+     "code": "error = lzc_ioctl(ZFS_IOC_BOOKMARK, pool, bookmarks, errlist);"
+    },
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 8071,
+     "symbol": "zfs_ioc_bookmark",
+     "code": "zfs_ioc_bookmark, zfs_secpolicy_bookmark, POOL_NAME,"
+    }
+   ]
+  },
+  {
+   "id": "E013",
+   "from": "libzfs",
+   "to": "zfs_ioctl",
+   "type": "ctl",
+   "label": "lzc_hold(): ZFS_IOC_HOLD -> zfs_ioc_hold()",
+   "refs": [
+    {
+     "file": "lib/libzfs_core/libzfs_core.c",
+     "line": 597,
+     "symbol": "ZFS_IOC_HOLD",
+     "code": "error = lzc_ioctl(ZFS_IOC_HOLD, pool, args, errlist);"
+    },
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 8052,
+     "symbol": "zfs_ioc_hold",
+     "code": "zfs_ioc_hold, zfs_secpolicy_hold, POOL_NAME,"
+    }
+   ]
+  },
+  {
+   "id": "E014",
+   "from": "libzfs",
+   "to": "zfs_ioctl",
+   "type": "ctl",
+   "label": "lzc_release(): ZFS_IOC_RELEASE -> zfs_ioc_release()",
+   "refs": [
+    {
+     "file": "lib/libzfs_core/libzfs_core.c",
+     "line": 637,
+     "symbol": "ZFS_IOC_RELEASE",
+     "code": "return (lzc_ioctl(ZFS_IOC_RELEASE, pool, holds, errlist));"
+    },
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 8056,
+     "symbol": "zfs_ioc_release",
+     "code": "zfs_ioc_release, zfs_secpolicy_release, POOL_NAME,"
+    }
+   ]
+  },
+  {
+   "id": "E015",
+   "from": "zfs_ioctl",
+   "to": "dsl_entry",
+   "type": "ctl",
+   "label": "the handler calls its DSL entry point: dsl_dataset_snapshot(), dsl_destroy_snapshots_nvl(), dsl_destroy_head(), dsl_dataset_rollback(), dsl_bookmark_create(), dsl_dataset_user_hold() or dsl_dataset_user_release()",
+   "refs": [
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 4238,
+     "symbol": "dsl_dataset_snapshot",
+     "code": "error = dsl_dataset_snapshot(snaps, props, outnvl);"
+    },
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 4434,
+     "symbol": "dsl_destroy_snapshots_nvl",
+     "code": "return (dsl_destroy_snapshots_nvl(snaps, defer, outnvl));"
+    },
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 4727,
+     "symbol": "dsl_destroy_head",
+     "code": "err = dsl_destroy_head(zc->zc_name);"
+    },
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 5148,
+     "symbol": "dsl_dataset_rollback",
+     "code": "error = dsl_dataset_rollback(fsname, target, zfsvfs,"
+    },
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 4458,
+     "symbol": "dsl_bookmark_create",
+     "code": "return (dsl_bookmark_create(innvl, outnvl));"
+    },
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 7123,
+     "symbol": "dsl_dataset_user_hold",
+     "code": "error = dsl_dataset_user_hold(holds, minor, errlist);"
+    },
+    {
+     "file": "module/zfs/zfs_ioctl.c",
+     "line": 7169,
+     "symbol": "dsl_dataset_user_release",
+     "code": "return (dsl_dataset_user_release(holds, errlist));"
+    }
+   ]
+  },
+  {
+   "id": "E016",
+   "from": "dsl_entry",
+   "to": "sync_task",
+   "type": "ctl",
+   "label": "dsl_sync_task(check, sync, arg): the check function runs first in open context as a quick test",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 2010,
+     "symbol": "dsl_sync_task",
+     "code": "error = dsl_sync_task(firstname, dsl_dataset_snapshot_check,"
+    },
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 626,
+     "symbol": "dsl_sync_task",
+     "code": "int error = dsl_sync_task(pool, dsl_destroy_snapshot_check,"
+    },
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 1314,
+     "symbol": "dsl_sync_task",
+     "code": "return (dsl_sync_task(name, dsl_destroy_head_check,"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 3479,
+     "symbol": "dsl_sync_task",
+     "code": "return (dsl_sync_task(fsname, dsl_dataset_rollback_check,"
+    },
+    {
+     "file": "module/zfs/dsl_bookmark.c",
+     "line": 638,
+     "symbol": "dsl_sync_task",
+     "code": "return (dsl_sync_task(nvpair_name(pair), dsl_bookmark_create_check,"
+    },
+    {
+     "file": "module/zfs/dsl_userhold.c",
+     "line": 333,
+     "symbol": "dsl_sync_task",
+     "code": "ret = dsl_sync_task(nvpair_name(pair), dsl_dataset_user_hold_check,"
+    },
+    {
+     "file": "module/zfs/dsl_userhold.c",
+     "line": 630,
+     "symbol": "dsl_sync_task",
+     "code": "error = dsl_sync_task(pool, dsl_dataset_user_release_check,"
+    },
+    {
+     "file": "module/zfs/dsl_synctask.c",
+     "line": 64,
+     "symbol": "dst_checkfunc",
+     "code": "err = dst.dst_checkfunc(arg, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E017",
+   "from": "sync_task",
+   "to": "dmu_tx",
+   "type": "tx",
+   "label": "dmu_tx_create_dd() + dmu_tx_assign(): the task joins the open txg and is added to its dp_sync_tasks list; dmu_tx_commit()",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_synctask.c",
+     "line": 50,
+     "symbol": "dmu_tx_create_dd",
+     "code": "tx = dmu_tx_create_dd(dp->dp_mos_dir);"
+    },
+    {
+     "file": "module/zfs/dsl_synctask.c",
+     "line": 51,
+     "symbol": "dmu_tx_assign",
+     "code": "VERIFY0(dmu_tx_assign(tx, DMU_TX_WAIT | DMU_TX_SUSPEND));"
+    },
+    {
+     "file": "module/zfs/dsl_synctask.c",
+     "line": 75,
+     "symbol": "txg_list_add_tail",
+     "code": "VERIFY(txg_list_add_tail(task_list, &dst, dst.dst_txg));"
+    },
+    {
+     "file": "module/zfs/dsl_synctask.c",
+     "line": 77,
+     "symbol": "dmu_tx_commit",
+     "code": "dmu_tx_commit(tx);"
+    }
+   ]
+  },
+  {
+   "id": "E018",
+   "from": "sync_task",
+   "to": "txg_sync",
+   "type": "ctl",
+   "label": "txg_wait_synced(): the caller sleeps until that txg is on disk; a task that failed with EAGAIN is retried TXG_DEFER_SIZE txgs later",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_synctask.c",
+     "line": 91,
+     "symbol": "txg_wait_synced",
+     "code": "txg_wait_synced(dp, dst.dst_txg);"
+    },
+    {
+     "file": "module/zfs/dsl_synctask.c",
+     "line": 94,
+     "symbol": "TXG_DEFER_SIZE",
+     "code": "txg_wait_synced(dp, dst.dst_txg + TXG_DEFER_SIZE);"
+    }
+   ]
+  },
+  {
+   "id": "E019",
+   "from": "txg_sync",
+   "to": "spa_sync",
+   "type": "tx",
+   "label": "txg_sync_thread() -> spa_sync(txg)",
+   "refs": [
+    {
+     "file": "module/zfs/txg.c",
+     "line": 602,
+     "symbol": "spa_sync",
+     "code": "spa_sync(spa, txg);"
+    }
+   ]
+  },
+  {
+   "id": "E020",
+   "from": "spa_sync",
+   "to": "dsl_pool_sync",
+   "type": "tx",
+   "label": "spa_sync_iterate_to_convergence(): dsl_pool_sync() in every pass",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 11208,
+     "symbol": "dsl_pool_sync",
+     "code": "dsl_pool_sync(dp, txg);"
+    }
+   ]
+  },
+  {
+   "id": "E021",
+   "from": "dsl_pool_sync",
+   "to": "snap_sync",
+   "type": "ctl",
+   "label": "after the txg's dataset blocks are written, dsl_sync_task_sync() re-runs dsl_dataset_snapshot_check() (EAGAIN if the dataset already has a snapshot in this txg), then dsl_dataset_snapshot_sync() runs dsl_dataset_snapshot_sync_impl() for every snapshot of the request",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_pool.c",
+     "line": 876,
+     "symbol": "dsl_sync_task_sync",
+     "code": "dsl_sync_task_sync(dst, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_synctask.c",
+     "line": 244,
+     "symbol": "dst_checkfunc",
+     "code": "dst->dst_error = dst->dst_checkfunc(dst->dst_arg, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 1549,
+     "symbol": "ds_prev_snap_txg",
+     "code": "if (dsl_dataset_phys(ds)->ds_prev_snap_txg >= tx->tx_txg)"
+    },
+    {
+     "file": "module/zfs/dsl_synctask.c",
+     "line": 246,
+     "symbol": "dst_syncfunc",
+     "code": "dst->dst_syncfunc(dst->dst_arg, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 2011,
+     "symbol": "dsl_dataset_snapshot_sync",
+     "code": "dsl_dataset_snapshot_sync, &ddsa,"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 1942,
+     "symbol": "dsl_dataset_snapshot_sync_impl",
+     "code": "dsl_dataset_snapshot_sync_impl(ds, atp + 1, crtime, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E022",
+   "from": "dsl_pool_sync",
+   "to": "hold_sync",
+   "type": "ctl",
+   "label": "dsl_sync_task_sync() -> dsl_dataset_user_hold_sync() or dsl_dataset_user_release_sync()",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_pool.c",
+     "line": 876,
+     "symbol": "dsl_sync_task_sync",
+     "code": "dsl_sync_task_sync(dst, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_userhold.c",
+     "line": 334,
+     "symbol": "dsl_dataset_user_hold_sync",
+     "code": "dsl_dataset_user_hold_sync, &dduha,"
+    },
+    {
+     "file": "module/zfs/dsl_userhold.c",
+     "line": 631,
+     "symbol": "dsl_dataset_user_release_sync",
+     "code": "dsl_dataset_user_release_sync, &ddura, 0,"
+    }
+   ]
+  },
+  {
+   "id": "E023",
+   "from": "dsl_pool_sync",
+   "to": "destroy_snap",
+   "type": "ctl",
+   "label": "dsl_sync_task_sync() -> dsl_destroy_snapshot_sync()",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_pool.c",
+     "line": 876,
+     "symbol": "dsl_sync_task_sync",
+     "code": "dsl_sync_task_sync(dst, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 627,
+     "symbol": "dsl_destroy_snapshot_sync",
+     "code": "dsl_destroy_snapshot_sync, &ddsa, 0,"
+    }
+   ]
+  },
+  {
+   "id": "E024",
+   "from": "dsl_pool_sync",
+   "to": "destroy_head",
+   "type": "ctl",
+   "label": "dsl_sync_task_sync() -> dsl_destroy_head_sync()",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_pool.c",
+     "line": 876,
+     "symbol": "dsl_sync_task_sync",
+     "code": "dsl_sync_task_sync(dst, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 1315,
+     "symbol": "dsl_destroy_head_sync",
+     "code": "dsl_destroy_head_sync, &ddha, 0, ZFS_SPACE_CHECK_DESTROY));"
+    }
+   ]
+  },
+  {
+   "id": "E025",
+   "from": "dsl_pool_sync",
+   "to": "rollback_sync",
+   "type": "ctl",
+   "label": "dsl_sync_task_sync() -> dsl_dataset_rollback_sync()",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_pool.c",
+     "line": 876,
+     "symbol": "dsl_sync_task_sync",
+     "code": "dsl_sync_task_sync(dst, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 3480,
+     "symbol": "dsl_dataset_rollback_sync",
+     "code": "dsl_dataset_rollback_sync, &ddra,"
+    }
+   ]
+  },
+  {
+   "id": "E026",
+   "from": "dsl_pool_sync",
+   "to": "bookmark_sync",
+   "type": "ctl",
+   "label": "dsl_sync_task_sync() -> dsl_bookmark_create_sync() -> dsl_bookmark_create_sync_impl_snap() for each new bookmark",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_pool.c",
+     "line": 876,
+     "symbol": "dsl_sync_task_sync",
+     "code": "dsl_sync_task_sync(dst, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_bookmark.c",
+     "line": 639,
+     "symbol": "dsl_bookmark_create_sync",
+     "code": "dsl_bookmark_create_sync, &dbca,"
+    },
+    {
+     "file": "module/zfs/dsl_bookmark.c",
+     "line": 611,
+     "symbol": "dsl_bookmark_create_sync_impl_snap",
+     "code": "dsl_bookmark_create_sync_impl_snap(new, source, tx,"
+    }
+   ]
+  },
+  {
+   "id": "E027",
+   "from": "snap_sync",
+   "to": "deadlist",
+   "type": "dead",
+   "label": "dsl_dataset_snapshot_sync_impl(): the new snapshot takes the head's deadlist object as it is; dsl_deadlist_clone() gives the head a new, empty deadlist with the same keys, and dsl_deadlist_add_key() adds a key at the previous snapshot's txg",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 1787,
+     "symbol": "ds_deadlist_obj",
+     "code": "dsphys->ds_deadlist_obj = dsl_dataset_phys(ds)->ds_deadlist_obj;"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 1843,
+     "symbol": "dsl_deadlist_clone",
+     "code": "dsl_deadlist_clone(&ds->ds_deadlist, UINT64_MAX,"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 1848,
+     "symbol": "dsl_deadlist_add_key",
+     "code": "dsl_deadlist_add_key(&ds->ds_deadlist,"
+    }
+   ]
+  },
+  {
+   "id": "E028",
+   "from": "snap_sync",
+   "to": "ds_space",
+   "type": "ctl",
+   "label": "the snapshot copies the head's root block pointer (ds_bp) and referenced bytes, so it shares every block; the head's ds_prev_snap_txg becomes this txg and its unique bytes drop to 0",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 1794,
+     "symbol": "ds_bp",
+     "code": "dsphys->ds_bp = dsl_dataset_phys(ds)->ds_bp;"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 1788,
+     "symbol": "ds_referenced_bytes",
+     "code": "dsphys->ds_referenced_bytes = dsl_dataset_phys(ds)->ds_referenced_bytes;"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 1894,
+     "symbol": "ds_prev_snap_txg",
+     "code": "dsl_dataset_phys(ds)->ds_prev_snap_txg = crtxg;"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 1895,
+     "symbol": "ds_unique_bytes",
+     "code": "dsl_dataset_phys(ds)->ds_unique_bytes = 0;"
+    }
+   ]
+  },
+  {
+   "id": "E029",
+   "from": "snap_sync",
+   "to": "bookmarks",
+   "type": "ctl",
+   "label": "dsl_bookmark_snapshotted(): deadlist keys for the bookmarks created since the previous snapshot",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 1850,
+     "symbol": "dsl_bookmark_snapshotted",
+     "code": "dsl_bookmark_snapshotted(ds, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E030",
+   "from": "dsl_pool_sync",
+   "to": "dbuf_write_cb",
+   "type": "ctl",
+   "label": "dsl_dataset_sync() -> dmu_objset_sync() writes the dataset's dirty blocks (I/O graph path txg_sync); each finished block write calls dbuf_write_done()",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_pool.c",
+     "line": 744,
+     "symbol": "dsl_dataset_sync",
+     "code": "dsl_dataset_sync(ds, rio, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 2161,
+     "symbol": "dmu_objset_sync",
+     "code": "dmu_objset_sync(ds->ds_objset, rio, tx);"
+    },
+    {
+     "file": "module/zfs/dbuf.c",
+     "line": 5603,
+     "symbol": "dbuf_write_done",
+     "code": "children_ready_cb, dbuf_write_done, db,"
+    }
+   ]
+  },
+  {
+   "id": "E031",
+   "from": "dbuf_write_cb",
+   "to": "block_kill",
+   "type": "bp",
+   "label": "unless the write was a nop-write or rewrite (ZIO_FLAG_NOPWRITE), dsl_dataset_block_kill(old block pointer, async) then dsl_dataset_block_born(new block pointer)",
+   "refs": [
+    {
+     "file": "module/zfs/dbuf.c",
+     "line": 5229,
+     "symbol": "ZIO_FLAG_NOPWRITE",
+     "code": "if (zio->io_flags & (ZIO_FLAG_IO_REWRITE | ZIO_FLAG_NOPWRITE)) {"
+    },
+    {
+     "file": "module/zfs/dbuf.c",
+     "line": 5233,
+     "symbol": "dsl_dataset_block_kill",
+     "code": "(void) dsl_dataset_block_kill(ds, bp_orig, tx, B_TRUE);"
+    },
+    {
+     "file": "module/zfs/dbuf.c",
+     "line": 5234,
+     "symbol": "dsl_dataset_block_born",
+     "code": "dsl_dataset_block_born(ds, bp, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E032",
+   "from": "dsl_pool_sync",
+   "to": "dnode_sync",
+   "type": "ctl",
+   "label": "dmu_objset_sync() -> dnode_sync(): dnode_sync_free_ranges() for an object with freed ranges (file removed, truncated, hole punched)",
+   "refs": [
+    {
+     "file": "module/zfs/dmu_objset.c",
+     "line": 1488,
+     "symbol": "dnode_sync",
+     "code": "dnode_sync(dn, tx);"
+    },
+    {
+     "file": "module/zfs/dnode_sync.c",
+     "line": 838,
+     "symbol": "dnode_sync_free_ranges",
+     "code": "dnode_sync_free_ranges(dn, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E033",
+   "from": "dnode_sync",
+   "to": "block_kill",
+   "type": "bp",
+   "label": "free_blocks(): dsl_dataset_block_kill(block pointer, not async) for every block pointer in the freed range",
+   "refs": [
+    {
+     "file": "module/zfs/dnode_sync.c",
+     "line": 137,
+     "symbol": "dsl_dataset_block_kill",
+     "code": "bytesfreed += dsl_dataset_block_kill(ds, bp, tx, B_FALSE);"
+    }
+   ]
+  },
+  {
+   "id": "E034",
+   "from": "block_kill",
+   "to": "frees",
+   "type": "bp",
+   "label": "birth > ds_prev_snap_txg: no snapshot can reference the block, dsl_free() in this txg; the dataset's unique space shrinks",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 304,
+     "symbol": "ds_prev_snap_txg",
+     "code": "if (BP_GET_BIRTH(bp) > dsl_dataset_phys(ds)->ds_prev_snap_txg) {"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 323,
+     "symbol": "dsl_free",
+     "code": "dsl_free(tx->tx_pool, tx->tx_txg, bp);"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 326,
+     "symbol": "ds_unique_delta",
+     "code": "wmsum_add(&ds->ds_unique_delta, -used);"
+    }
+   ]
+  },
+  {
+   "id": "E035",
+   "from": "block_kill",
+   "to": "free_bpobj",
+   "type": "dead",
+   "label": "born after the latest snapshot but a gang or dedup block (BP_IS_GANG(), BP_GET_DEDUP()) or possibly cloned (brt_maybe_exists()): bpobj_enqueue() on the pool free list to keep heavy free zios out of this txg; counted in freeing (dp_free_dir)",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 313,
+     "symbol": "BP_IS_GANG",
+     "code": "(BP_IS_GANG(bp) || BP_GET_DEDUP(bp) ||"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 313,
+     "symbol": "BP_GET_DEDUP",
+     "code": "(BP_IS_GANG(bp) || BP_GET_DEDUP(bp) ||"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 314,
+     "symbol": "brt_maybe_exists",
+     "code": "brt_maybe_exists(spa, bp));"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 318,
+     "symbol": "bpobj_enqueue",
+     "code": "bpobj_enqueue(&ds->ds_dir->dd_pool->dp_free_bpobj,"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 331,
+     "symbol": "dp_free_dir",
+     "code": "dsl_dir_diduse_space(tx->tx_pool->dp_free_dir,"
+    }
+   ]
+  },
+  {
+   "id": "E036",
+   "from": "block_kill",
+   "to": "deadlist",
+   "type": "dead",
+   "label": "birth <= ds_prev_snap_txg: the latest snapshot still references it. dsl_deadlist_insert() on the head's deadlist; from a write callback (async) it waits on ds_pending_deadlist first",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 304,
+     "symbol": "ds_prev_snap_txg",
+     "code": "if (BP_GET_BIRTH(bp) > dsl_dataset_phys(ds)->ds_prev_snap_txg) {"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 348,
+     "symbol": "dsl_deadlist_insert",
+     "code": "dsl_deadlist_insert(&ds->ds_deadlist, bp, B_FALSE, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 346,
+     "symbol": "ds_pending_deadlist",
+     "code": "bplist_append(&ds->ds_pending_deadlist, bp);"
+    }
+   ]
+  },
+  {
+   "id": "E037",
+   "from": "dsl_pool_sync",
+   "to": "deadlist",
+   "type": "dead",
+   "label": "dsl_dataset_sync_done(): ds_pending_deadlist entries are inserted into the deadlist (dsl_deadlist_insert_alloc_cb())",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_pool.c",
+     "line": 816,
+     "symbol": "dsl_dataset_sync_done",
+     "code": "dsl_dataset_sync_done(ds, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 2397,
+     "symbol": "ds_pending_deadlist",
+     "code": "bplist_iterate(&ds->ds_pending_deadlist,"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 2398,
+     "symbol": "dsl_deadlist_insert_alloc_cb",
+     "code": "dsl_deadlist_insert_alloc_cb, &ds->ds_deadlist, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E038",
+   "from": "block_kill",
+   "to": "ds_space",
+   "type": "ctl",
+   "label": "deltas: a freed block leaves unique and referenced; a deadlisted block leaves referenced, moves from usedbydataset to usedbysnapshots if born after the dataset's origin (ds_snap_xfer_delta), and becomes unique to the latest snapshot if born after the snapshot before it (ds_prev_unique_delta); applied by dsl_dataset_apply_deltas()",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 326,
+     "symbol": "ds_unique_delta",
+     "code": "wmsum_add(&ds->ds_unique_delta, -used);"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 335,
+     "symbol": "ds_dead_delta",
+     "code": "wmsum_add(&ds->ds_dead_delta, used);"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 360,
+     "symbol": "ds_snap_xfer_delta",
+     "code": "wmsum_add(&ds->ds_snap_xfer_delta, used);"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 357,
+     "symbol": "ds_prev_unique_delta",
+     "code": "wmsum_add(&ds->ds_prev_unique_delta, used);"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 2395,
+     "symbol": "dsl_dataset_apply_deltas",
+     "code": "dsl_dataset_apply_deltas(ds, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E039",
+   "from": "block_kill",
+   "to": "bookmarks",
+   "type": "ctl",
+   "label": "dsl_bookmark_block_killed(): a block born at or before a bookmark taken since the latest snapshot adds to that bookmark's freed-before-next-snapshot space (BP_GET_BIRTH() <= zbm_creation_txg)",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 363,
+     "symbol": "dsl_bookmark_block_killed",
+     "code": "dsl_bookmark_block_killed(ds, bp, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_bookmark.c",
+     "line": 1515,
+     "symbol": "BP_GET_BIRTH",
+     "code": "if (BP_GET_BIRTH(bp) <="
+    },
+    {
+     "file": "module/zfs/dsl_bookmark.c",
+     "line": 1516,
+     "symbol": "zbm_creation_txg",
+     "code": "dbn->dbn_phys.zbm_creation_txg &&"
+    }
+   ]
+  },
+  {
+   "id": "E040",
+   "from": "block_kill",
+   "to": "livelist",
+   "type": "dead",
+   "label": "clone with an open livelist and birth > dd_origin_txg: bplist_append(dd_pending_frees); dsl_dataset_block_born() puts new blocks on dd_pending_allocs",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 296,
+     "symbol": "dd_origin_txg",
+     "code": "BP_GET_BIRTH(bp) > ds->ds_dir->dd_origin_txg &&"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 301,
+     "symbol": "dd_pending_frees",
+     "code": "bplist_append(&ds->ds_dir->dd_pending_frees, bp);"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 214,
+     "symbol": "dd_pending_allocs",
+     "code": "bplist_append(&ds->ds_dir->dd_pending_allocs, bp);"
+    }
+   ]
+  },
+  {
+   "id": "E041",
+   "from": "dsl_pool_sync",
+   "to": "livelist",
+   "type": "dead",
+   "label": "dsl_dataset_sync_done() -> dsl_flush_pending_livelist(): the txg's ALLOC and FREE entries are appended to the livelist; dsl_livelist_should_disable() may drop it",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 2401,
+     "symbol": "dsl_flush_pending_livelist",
+     "code": "dsl_flush_pending_livelist(ds, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 2402,
+     "symbol": "dsl_livelist_should_disable",
+     "code": "if (dsl_livelist_should_disable(ds)) {"
+    }
+   ]
+  },
+  {
+   "id": "E042",
+   "from": "frees",
+   "to": "metaslab_free",
+   "type": "alloc",
+   "label": "ordinary block: zio_free() for the syncing txg, or the background code, calls zio_free_sync(), which calls metaslab_free() directly, with no zio",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_scan.c",
+     "line": 1580,
+     "symbol": "zio_free",
+     "code": "zio_free(dp->dp_spa, txg, bp);"
+    },
+    {
+     "file": "module/zfs/zio.c",
+     "line": 1467,
+     "symbol": "zio_free_sync",
+     "code": "VERIFY0P(zio_free_sync(NULL, spa, txg, bp, 0));"
+    },
+    {
+     "file": "module/zfs/zio.c",
+     "line": 1506,
+     "symbol": "metaslab_free",
+     "code": "metaslab_free(spa, bp, txg, B_FALSE);"
+    }
+   ]
+  },
+  {
+   "id": "E043",
+   "from": "frees",
+   "to": "zio_create",
+   "type": "zio",
+   "label": "gang, dedup or possibly cloned block: zio_free() queues it on spa_free_bplist (bplist_append()) for spa_sync_frees(); zio_free_sync() then builds a ZIO_TYPE_FREE zio with ZIO_FREE_PIPELINE (zio_create())",
+   "refs": [
+    {
+     "file": "module/zfs/zio.c",
+     "line": 1465,
+     "symbol": "bplist_append",
+     "code": "bplist_append(&spa->spa_free_bplist[txg & TXG_MASK], bp);"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 11218,
+     "symbol": "spa_sync_frees",
+     "code": "spa_sync_frees(spa, free_bpl, tx);"
+    },
+    {
+     "file": "module/zfs/zio.c",
+     "line": 1498,
+     "symbol": "ZIO_FREE_PIPELINE",
+     "code": "ZIO_FREE_PIPELINE | ZIO_STAGE_ISSUE_ASYNC;"
+    },
+    {
+     "file": "module/zfs/zio.c",
+     "line": 1500,
+     "symbol": "zio_create",
+     "code": "return (zio_create(pio, spa, txg, bp, NULL, BP_GET_PSIZE(bp),"
+    }
+   ]
+  },
+  {
+   "id": "E044",
+   "from": "zio_create",
+   "to": "st_free",
+   "type": "zio",
+   "label": "ZIO_FREE_PIPELINE",
+   "refs": [
+    {
+     "file": "module/zfs/zio.c",
+     "line": 1498,
+     "symbol": "ZIO_FREE_PIPELINE",
+     "code": "ZIO_FREE_PIPELINE | ZIO_STAGE_ISSUE_ASYNC;"
+    }
+   ]
+  },
+  {
+   "id": "E045",
+   "from": "st_free",
+   "to": "brt",
+   "type": "bp",
+   "label": "zio_brt_free(): brt_entry_decref(); if other clones still reference the block, stop: the space stays allocated",
+   "refs": [
+    {
+     "file": "module/zfs/zio.c",
+     "line": 3815,
+     "symbol": "brt_entry_decref",
+     "code": "if (!brt_entry_decref(zio->io_spa, bp)) {"
+    }
+   ]
+  },
+  {
+   "id": "E046",
+   "from": "st_free",
+   "to": "metaslab_free",
+   "type": "alloc",
+   "label": "last reference (zio_ddt_free() does the same for dedup): zio_dva_free() -> metaslab_free()",
+   "refs": [
+    {
+     "file": "module/zfs/zio.c",
+     "line": 4962,
+     "symbol": "metaslab_free",
+     "code": "metaslab_free(zio->io_spa, zio->io_bp, zio->io_txg, B_FALSE);"
+    }
+   ]
+  },
+  {
+   "id": "E047",
+   "from": "destroy_snap",
+   "to": "hold_sync",
+   "type": "ctl",
+   "label": "dsl_destroy_snapshot_check_impl(): user holds (ds_userrefs > 0) make a plain destroy fail with EBUSY; with -d, dsl_destroy_snapshot_sync_impl() only sets DS_FLAG_DEFER_DESTROY while holds, clones or a mount remain",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 78,
+     "symbol": "ds_userrefs",
+     "code": "if (ds->ds_userrefs > 0)"
+    },
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 326,
+     "symbol": "DS_FLAG_DEFER_DESTROY",
+     "code": "dsl_dataset_phys(ds)->ds_flags |= DS_FLAG_DEFER_DESTROY;"
+    }
+   ]
+  },
+  {
+   "id": "E048",
+   "from": "hold_sync",
+   "to": "destroy_snap",
+   "type": "ctl",
+   "label": "dsl_dataset_user_release_sync(): the last hold of a snapshot marked defer_destroy (DS_IS_DEFER_DESTROY(), no clones) is released, so dsl_destroy_snapshot_sync_impl() runs in the same sync task",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_userhold.c",
+     "line": 544,
+     "symbol": "dsl_destroy_snapshot_sync_impl",
+     "code": "dsl_destroy_snapshot_sync_impl(ds, B_FALSE, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_userhold.c",
+     "line": 415,
+     "symbol": "DS_IS_DEFER_DESTROY",
+     "code": "if (DS_IS_DEFER_DESTROY(ds) &&"
+    }
+   ]
+  },
+  {
+   "id": "E049",
+   "from": "destroy_snap",
+   "to": "bookmarks",
+   "type": "ctl",
+   "label": "dsl_bookmark_ds_destroyed(): bookmarks between the previous snapshot and this one add the next deadlist's space to their counters; returns whether a bookmark at this snapshot's txg needs the deadlist key",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 354,
+     "symbol": "dsl_bookmark_ds_destroyed",
+     "code": "boolean_t book_exists = dsl_bookmark_ds_destroyed(ds, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E050",
+   "from": "destroy_snap",
+   "to": "deadlist_split",
+   "type": "dead",
+   "label": "next (the following snapshot, or the head) inherits this snapshot's ds_prev_snap_txg; dsl_deadlist_move_bpobj(next's deadlist, mintxg = that txg), then dsl_deadlist_merge(next's deadlist, this snapshot's deadlist)",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 398,
+     "symbol": "ds_prev_snap_txg",
+     "code": "dsl_dataset_phys(ds_next)->ds_prev_snap_txg ="
+    },
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 424,
+     "symbol": "dsl_deadlist_move_bpobj",
+     "code": "dsl_deadlist_move_bpobj(&ds_next->ds_deadlist,"
+    },
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 431,
+     "symbol": "dsl_deadlist_merge",
+     "code": "dsl_deadlist_merge(&ds_next->ds_deadlist,"
+    }
+   ]
+  },
+  {
+   "id": "E051",
+   "from": "deadlist_split",
+   "to": "free_bpobj",
+   "type": "dead",
+   "label": "sub-lists keyed at or above mintxg hold blocks born after the previous snapshot that died before next: only this snapshot had them. bpobj_enqueue_subobj() moves them whole to the pool free list; freeing (dp_free_dir) grows",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_deadlist.c",
+     "line": 961,
+     "symbol": "bpobj_enqueue_subobj",
+     "code": "bpobj_enqueue_subobj(bpo, dle->dle_bpobj.bpo_object, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 427,
+     "symbol": "dp_free_dir",
+     "code": "dsl_dir_diduse_space(tx->tx_pool->dp_free_dir,"
+    }
+   ]
+  },
+  {
+   "id": "E052",
+   "from": "deadlist_split",
+   "to": "deadlist",
+   "type": "dead",
+   "label": "this snapshot's own deadlist (blocks born at or before its previous snapshot, still held by older snapshots) is added to next's deadlist sub-list by sub-list (dsl_deadlist_insert_bpobj())",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_deadlist.c",
+     "line": 902,
+     "symbol": "dsl_deadlist_insert_bpobj",
+     "code": "dsl_deadlist_insert_bpobj(dl, za->za_first_integer,"
+    }
+   ]
+  },
+  {
+   "id": "E053",
+   "from": "destroy_snap",
+   "to": "ds_space",
+   "type": "ctl",
+   "label": "dsl_deadlist_space_range(): usedbysnapshots drops (dsl_dir_diduse_space()) by the space moved to the free list; the previous snapshot's unique (ds_unique_bytes) grows by blocks only it now holds; next's unique grows the same way (ds_unique_bytes) or, for the head, is recomputed (dsl_dataset_recalc_head_uniq())",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 417,
+     "symbol": "dsl_deadlist_space_range",
+     "code": "dsl_deadlist_space_range(&ds_next->ds_deadlist,"
+    },
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 420,
+     "symbol": "dsl_dir_diduse_space",
+     "code": "dsl_dir_diduse_space(ds->ds_dir, DD_USED_SNAP,"
+    },
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 413,
+     "symbol": "ds_unique_bytes",
+     "code": "dsl_dataset_phys(ds_prev)->ds_unique_bytes += used;"
+    },
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 474,
+     "symbol": "ds_unique_bytes",
+     "code": "dsl_dataset_phys(ds_next)->ds_unique_bytes += used;"
+    },
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 504,
+     "symbol": "dsl_dataset_recalc_head_uniq",
+     "code": "dsl_dataset_recalc_head_uniq(ds_next);"
+    }
+   ]
+  },
+  {
+   "id": "E054",
+   "from": "destroy_snap",
+   "to": "deadlist",
+   "type": "ctl",
+   "label": "the key at this snapshot's creation txg is removed from clones' deadlists (dsl_dir_remove_clones_key()) and, when next is a snapshot, from the head's (dsl_deadlist_remove_key()), unless a bookmark there needs it",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 451,
+     "symbol": "dsl_dir_remove_clones_key",
+     "code": "dsl_dir_remove_clones_key(ds->ds_dir,"
+    },
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 485,
+     "symbol": "dsl_deadlist_remove_key",
+     "code": "dsl_deadlist_remove_key(&hds->ds_deadlist,"
+    }
+   ]
+  },
+  {
+   "id": "E055",
+   "from": "spa_sync",
+   "to": "bg_scan",
+   "type": "tx",
+   "label": "spa_sync_iterate_to_convergence() -> dsl_scan_sync(), which returns at once after sync pass 1 (spa_sync_pass())",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 11231,
+     "symbol": "dsl_scan_sync",
+     "code": "dsl_scan_sync(dp, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_scan.c",
+     "line": 4547,
+     "symbol": "spa_sync_pass",
+     "code": "if (spa_sync_pass(spa) > 1)"
+    }
+   ]
+  },
+  {
+   "id": "E056",
+   "from": "bg_scan",
+   "to": "async_destroy",
+   "type": "ctl",
+   "label": "dsl_scan_active() sees pending frees (free list, bptree, destroyed clones); dsl_process_async_destroys() runs before any scrub work",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_scan.c",
+     "line": 4593,
+     "symbol": "dsl_scan_active",
+     "code": "if (!scn->scn_async_stalled && !dsl_scan_active(scn))"
+    },
+    {
+     "file": "module/zfs/dsl_scan.c",
+     "line": 4620,
+     "symbol": "dsl_process_async_destroys",
+     "code": "err = dsl_process_async_destroys(dp, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E057",
+   "from": "free_bpobj",
+   "to": "async_destroy",
+   "type": "dead",
+   "label": "bpobj_iterate(dp_free_bpobj, bpobj_dsl_scan_free_block_cb): entries are removed as they are freed",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_scan.c",
+     "line": 3987,
+     "symbol": "bpobj_iterate",
+     "code": "err = bpobj_iterate(&dp->dp_free_bpobj,"
+    },
+    {
+     "file": "module/zfs/dsl_scan.c",
+     "line": 3988,
+     "symbol": "bpobj_dsl_scan_free_block_cb",
+     "code": "bpobj_dsl_scan_free_block_cb, scn, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E058",
+   "from": "async_destroy",
+   "to": "frees",
+   "type": "bp",
+   "label": "dsl_scan_free_block_cb(): zio_free_sync() for each block, and its space is subtracted from freeing (dp_free_dir)",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_scan.c",
+     "line": 3761,
+     "symbol": "zio_free_sync",
+     "code": "zio_t *zio = zio_free_sync(scn->scn_zio_root, scn->scn_dp->dp_spa,"
+    },
+    {
+     "file": "module/zfs/dsl_scan.c",
+     "line": 3763,
+     "symbol": "dp_free_dir",
+     "code": "dsl_dir_diduse_space(tx->tx_pool->dp_free_dir, DD_USED_HEAD,"
+    }
+   ]
+  },
+  {
+   "id": "E059",
+   "from": "async_destroy",
+   "to": "spa_sync",
+   "type": "ctl",
+   "label": "dsl_scan_async_block_should_pause(), for example past zfs_async_block_max_blocks or zfs_max_async_dedup_frees, past half of zfs_txg_timeout, or past zfs_free_min_time_ms (scn_async_block_min_time_ms) while a txg sync is waiting: ERESTART, the rest waits for the next txg",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_scan.c",
+     "line": 3720,
+     "symbol": "zfs_async_block_max_blocks",
+     "code": "scn->scn_visited_this_txg >= zfs_async_block_max_blocks) {"
+    },
+    {
+     "file": "module/zfs/dsl_scan.c",
+     "line": 3725,
+     "symbol": "zfs_max_async_dedup_frees",
+     "code": "scn->scn_async_frees_this_txg >= zfs_max_async_dedup_frees) {"
+    },
+    {
+     "file": "module/zfs/dsl_scan.c",
+     "line": 3744,
+     "symbol": "zfs_txg_timeout",
+     "code": "return (elapsed_nanosecs / (NANOSEC / 2) > zfs_txg_timeout ||"
+    },
+    {
+     "file": "module/zfs/dsl_scan.c",
+     "line": 3745,
+     "symbol": "scn_async_block_min_time_ms",
+     "code": "(NSEC2MSEC(elapsed_nanosecs) > scn->scn_async_block_min_time_ms &&"
+    },
+    {
+     "file": "module/zfs/dsl_scan.c",
+     "line": 3758,
+     "symbol": "ERESTART",
+     "code": "return (SET_ERROR(ERESTART));"
+    }
+   ]
+  },
+  {
+   "id": "E060",
+   "from": "destroy_head",
+   "to": "deadlist",
+   "type": "ctl",
+   "label": "dsl_deadlist_free(): the head's deadlist is dropped without freeing anything; it is empty, or (for a clone, and for the rollback clone) its blocks are still held by the origin snapshot",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 1127,
+     "symbol": "dsl_deadlist_free",
+     "code": "dsl_deadlist_free(mos, dsl_dataset_phys(ds)->ds_deadlist_obj, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E061",
+   "from": "destroy_head",
+   "to": "bptree",
+   "type": "bp",
+   "label": "dsl_async_dataset_destroy(): bptree_add(root block pointer, ds_prev_snap_txg) and the dataset's space moves to freeing (dp_free_dir); the first entry activates async_destroy (spa_feature_incr())",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 1143,
+     "symbol": "dsl_async_dataset_destroy",
+     "code": "dsl_async_dataset_destroy(ds, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 1052,
+     "symbol": "bptree_add",
+     "code": "bptree_add(mos, dp->dp_bptree_obj,"
+    },
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 1059,
+     "symbol": "dp_free_dir",
+     "code": "dsl_dir_diduse_space(dp->dp_free_dir, DD_USED_HEAD,"
+    },
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 1033,
+     "symbol": "spa_feature_incr",
+     "code": "spa_feature_incr(dp->dp_spa, SPA_FEATURE_ASYNC_DESTROY,"
+    }
+   ]
+  },
+  {
+   "id": "E062",
+   "from": "destroy_head",
+   "to": "livelist",
+   "type": "dead",
+   "label": "clone with an open livelist: dsl_async_clone_destroy() adds the livelist to the pool's deleted-clones ZAP (zap_add_int()), moves its space to freeing (dp_free_dir) and wakes the delete thread (zthr_wakeup())",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 1140,
+     "symbol": "dsl_async_clone_destroy",
+     "code": "dsl_async_clone_destroy(ds, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 997,
+     "symbol": "zap_add_int",
+     "code": "VERIFY0(zap_add_int(mos, zap_obj, to_delete, tx));"
+    },
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 1004,
+     "symbol": "dp_free_dir",
+     "code": "dsl_dir_diduse_space(dp->dp_free_dir, DD_USED_HEAD,"
+    },
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 1007,
+     "symbol": "zthr_wakeup",
+     "code": "zthr_wakeup(spa->spa_livelist_delete_zthr);"
+    }
+   ]
+  },
+  {
+   "id": "E063",
+   "from": "destroy_head",
+   "to": "block_kill",
+   "type": "bp",
+   "label": "pool without async_destroy: old_synchronous_dataset_destroy() -> traverse_dataset() -> kill_blkptr() -> dsl_dataset_block_kill() for every block born after ds_prev_snap_txg, all in this txg",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 1145,
+     "symbol": "old_synchronous_dataset_destroy",
+     "code": "old_synchronous_dataset_destroy(ds, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 807,
+     "symbol": "traverse_dataset",
+     "code": "VERIFY0(traverse_dataset(ds,"
+    },
+    {
+     "file": "module/zfs/dsl_destroy.c",
+     "line": 783,
+     "symbol": "dsl_dataset_block_kill",
+     "code": "(void) dsl_dataset_block_kill(ka->ds, bp, tx, B_FALSE);"
+    }
+   ]
+  },
+  {
+   "id": "E064",
+   "from": "async_destroy",
+   "to": "bptree",
+   "type": "ctl",
+   "label": "after the free list: bptree_iterate(dp_bptree_obj, free, dsl_scan_free_block_cb); once the bptree is empty the async_destroy feature is deactivated (spa_feature_decr())",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_scan.c",
+     "line": 4001,
+     "symbol": "bptree_iterate",
+     "code": "err = bptree_iterate(dp->dp_meta_objset,"
+    },
+    {
+     "file": "module/zfs/dsl_scan.c",
+     "line": 4015,
+     "symbol": "spa_feature_decr",
+     "code": "spa_feature_decr(spa, SPA_FEATURE_ASYNC_DESTROY, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E065",
+   "from": "bptree",
+   "to": "traverse_destroy",
+   "type": "ctl",
+   "label": "for each entry from bt_begin: traverse_dataset_destroyed(root block pointer, be_birth_txg, saved bookmark)",
+   "refs": [
+    {
+     "file": "module/zfs/bptree.c",
+     "line": 225,
+     "symbol": "traverse_dataset_destroyed",
+     "code": "err = traverse_dataset_destroyed(os->os_spa, &bte.be_bp,"
+    }
+   ]
+  },
+  {
+   "id": "E066",
+   "from": "traverse_destroy",
+   "to": "async_destroy",
+   "type": "bp",
+   "label": "only blocks born after be_birth_txg (td_min_txg) are visited, children before parents (TRAVERSE_POST); bptree_visit_cb() -> dsl_scan_free_block_cb()",
+   "refs": [
+    {
+     "file": "module/zfs/dmu_traverse.c",
+     "line": 272,
+     "symbol": "td_min_txg",
+     "code": "} else if (get_birth_time(td, bp) <= td->td_min_txg) {"
+    },
+    {
+     "file": "module/zfs/bptree.c",
+     "line": 207,
+     "symbol": "TRAVERSE_POST",
+     "code": "int flags = TRAVERSE_PREFETCH_METADATA | TRAVERSE_POST |"
+    },
+    {
+     "file": "module/zfs/bptree.c",
+     "line": 154,
+     "symbol": "ba_func",
+     "code": "err = ba->ba_func(ba->ba_arg, bp, ba->ba_tx);"
+    }
+   ]
+  },
+  {
+   "id": "E067",
+   "from": "traverse_destroy",
+   "to": "bptree",
+   "type": "ctl",
+   "label": "on ERESTART bptree_iterate() saves the traversal bookmark in the entry (dmu_write()) and resumes there next txg; a finished entry advances bt_begin",
+   "refs": [
+    {
+     "file": "module/zfs/bptree.c",
+     "line": 240,
+     "symbol": "dmu_write",
+     "code": "dmu_write(os, obj, i * sizeof (bte),"
+    },
+    {
+     "file": "module/zfs/bptree.c",
+     "line": 269,
+     "symbol": "bt_begin",
+     "code": "ba.ba_phys->bt_begin++;"
+    }
+   ]
+  },
+  {
+   "id": "E068",
+   "from": "livelist",
+   "to": "livelist_del",
+   "type": "dead",
+   "label": "spa_livelist_delete_cb() on the z_livelist_destroy zthr: dsl_process_sub_livelist() keeps the ALLOC entries of one sub-list that have no matching FREE",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 3417,
+     "symbol": "dsl_process_sub_livelist",
+     "code": "int err = dsl_process_sub_livelist(&dle->dle_bpobj, &to_free,"
+    }
+   ]
+  },
+  {
+   "id": "E069",
+   "from": "livelist_del",
+   "to": "frees",
+   "type": "bp",
+   "label": "a sync task (dsl_sync_task(), sublist_delete_sync()) runs delete_blkptr_cb() -> zio_free() for each, subtracting it from freeing",
+   "refs": [
+    {
+     "file": "module/zfs/spa.c",
+     "line": 3430,
+     "symbol": "dsl_sync_task",
+     "code": "VERIFY0(dsl_sync_task(spa_name(spa), NULL,"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 3354,
+     "symbol": "delete_blkptr_cb",
+     "code": "bplist_iterate(to_free, delete_blkptr_cb, spa, tx);"
+    },
+    {
+     "file": "module/zfs/spa.c",
+     "line": 3311,
+     "symbol": "zio_free",
+     "code": "zio_free(spa, tx->tx_txg, bp);"
+    }
+   ]
+  },
+  {
+   "id": "E070",
+   "from": "rollback_sync",
+   "to": "clone_swap",
+   "type": "ctl",
+   "label": "dsl_dataset_create_sync(%rollback, latest snapshot): a temporary clone whose root block pointer (ds_bp) is the snapshot's",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 3441,
+     "symbol": "dsl_dataset_create_sync",
+     "code": "cloneobj = dsl_dataset_create_sync(ds->ds_dir, \"%rollback\","
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 1237,
+     "symbol": "ds_bp",
+     "code": "dsphys->ds_bp = dsl_dataset_phys(origin)->ds_bp;"
+    }
+   ]
+  },
+  {
+   "id": "E071",
+   "from": "clone_swap",
+   "to": "ds_space",
+   "type": "ctl",
+   "label": "dsl_dataset_clone_swap_sync_impl(): head and clone swap root block pointers (ds_bp), deadlists (ds_deadlist_obj) and space counters (ds_unique_bytes); the head now holds the snapshot's tree with an empty deadlist",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 3446,
+     "symbol": "dsl_dataset_clone_swap_sync_impl",
+     "code": "dsl_dataset_clone_swap_sync_impl(clone, ds, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 4428,
+     "symbol": "ds_bp",
+     "code": "dsl_dataset_phys(origin_head)->ds_bp ="
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 4502,
+     "symbol": "ds_deadlist_obj",
+     "code": "SWITCH64(dsl_dataset_phys(origin_head)->ds_deadlist_obj,"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 4490,
+     "symbol": "ds_unique_bytes",
+     "code": "SWITCH64(dsl_dataset_phys(origin_head)->ds_unique_bytes,"
+    }
+   ]
+  },
+  {
+   "id": "E072",
+   "from": "rollback_sync",
+   "to": "destroy_head",
+   "type": "ctl",
+   "label": "dsl_dataset_zero_zil() discards the head's intent log, then dsl_destroy_head_sync_impl(%rollback clone) destroys the old contents the clone now holds",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 3447,
+     "symbol": "dsl_dataset_zero_zil",
+     "code": "dsl_dataset_zero_zil(ds, tx);"
+    },
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 3449,
+     "symbol": "dsl_destroy_head_sync_impl",
+     "code": "dsl_destroy_head_sync_impl(clone, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E073",
+   "from": "rollback_sync",
+   "to": "bookmarks",
+   "type": "ctl",
+   "label": "dsl_dataset_rollback_check(): EEXIST if a bookmark is newer than the latest snapshot (dsl_bookmark_latest_txg())",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_dataset.c",
+     "line": 3384,
+     "symbol": "dsl_bookmark_latest_txg",
+     "code": "if (dsl_bookmark_latest_txg(ds) >"
+    }
+   ]
+  },
+  {
+   "id": "E074",
+   "from": "bookmark_sync",
+   "to": "bookmarks",
+   "type": "ctl",
+   "label": "dsl_bookmark_set_phys() copies the snapshot's guid (zbm_guid) and creation txg (zbm_creation_txg); dsl_bookmark_node_add() stores the bookmark in the head's bookmark ZAP",
+   "refs": [
+    {
+     "file": "module/zfs/dsl_bookmark.c",
+     "line": 454,
+     "symbol": "dsl_bookmark_set_phys",
+     "code": "dsl_bookmark_set_phys(&dbn->dbn_phys, snapds);"
+    },
+    {
+     "file": "module/zfs/dsl_bookmark.c",
+     "line": 348,
+     "symbol": "zbm_guid",
+     "code": "zbm->zbm_guid = dsp->ds_guid;"
+    },
+    {
+     "file": "module/zfs/dsl_bookmark.c",
+     "line": 349,
+     "symbol": "zbm_creation_txg",
+     "code": "zbm->zbm_creation_txg = dsp->ds_creation_txg;"
+    },
+    {
+     "file": "module/zfs/dsl_bookmark.c",
+     "line": 515,
+     "symbol": "dsl_bookmark_node_add",
+     "code": "dsl_bookmark_node_add(bmark_fs, dbn, tx);"
+    }
+   ]
+  },
+  {
+   "id": "E075",
+   "from": "admin",
+   "to": "zfs_cmd",
+   "type": "ctl",
+   "label": "runs zfs snapshot [-r] fs@snap",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 197,
+     "symbol": "zfs_do_snapshot",
+     "code": "{ \"snapshot\",\tzfs_do_snapshot,\tHELP_SNAPSHOT\t\t},"
+    }
+   ]
+  },
+  {
+   "id": "E076",
+   "from": "admin",
+   "to": "zfs_cmd",
+   "type": "ctl",
+   "label": "runs zfs destroy [-d] fs@snap, or zfs destroy fs",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 195,
+     "symbol": "zfs_do_destroy",
+     "code": "{ \"destroy\",\tzfs_do_destroy,\t\tHELP_DESTROY\t\t},"
+    }
+   ]
+  },
+  {
+   "id": "E077",
+   "from": "admin",
+   "to": "zfs_cmd",
+   "type": "ctl",
+   "label": "runs zfs hold tag fs@snap (and later zfs release)",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 230,
+     "symbol": "zfs_do_hold",
+     "code": "{ \"hold\",\tzfs_do_hold,\t\tHELP_HOLD\t\t},"
+    }
+   ]
+  },
+  {
+   "id": "E078",
+   "from": "admin",
+   "to": "zfs_cmd",
+   "type": "ctl",
+   "label": "runs zfs rollback [-r] fs@snap",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 198,
+     "symbol": "zfs_do_rollback",
+     "code": "{ \"rollback\",\tzfs_do_rollback,\tHELP_ROLLBACK\t\t},"
+    }
+   ]
+  },
+  {
+   "id": "E079",
+   "from": "admin",
+   "to": "zfs_cmd",
+   "type": "ctl",
+   "label": "runs zfs bookmark fs@snap fs#mark",
+   "refs": [
+    {
+     "file": "cmd/zfs/zfs_main.c",
+     "line": 202,
+     "symbol": "zfs_do_bookmark",
+     "code": "{ \"bookmark\",\tzfs_do_bookmark,\tHELP_BOOKMARK\t\t},"
+    }
+   ]
+  }
+ ],
+ "paths": [
+  {
+   "id": "snapshot_create",
+   "category": "Snapshot",
+   "title": "Take a snapshot",
+   "summary": "zfs snapshot from the command line to the sync task that creates the snapshot record. No data is copied: the snapshot shares the head's root block pointer, takes over the head's deadlist, and moves the head's ds_prev_snap_txg forward.",
+   "ends": "The snapshot exists and the command returns. From the next txg on, every block the head kills is compared against the new ds_prev_snap_txg (path overwrite).",
+   "alts": [],
+   "steps": [
+    {
+     "wire": "E075"
+    },
+    {
+     "wire": "E001"
+    },
+    {
+     "wire": "E008"
+    },
+    {
+     "wire": "E015"
+    },
+    {
+     "wire": "E016"
+    },
+    {
+     "wire": "E017"
+    },
+    {
+     "wire": "E018"
+    },
+    {
+     "wire": "E019"
+    },
+    {
+     "wire": "E020"
+    },
+    {
+     "wire": "E021"
+    },
+    {
+     "wire": "E027"
+    },
+    {
+     "wire": "E028"
+    },
+    {
+     "wire": "E029"
+    }
+   ]
+  },
+  {
+   "id": "overwrite",
+   "category": "Space",
+   "title": "Overwrite or delete: free now or deadlist",
+   "summary": "What happens to the block the head stops referencing, when copy-on-write replaces it or a file is removed. The comparison birth > ds_prev_snap_txg in dsl_dataset_block_kill() decides between freeing it and keeping it for a snapshot.",
+   "ends": "The block is free (reusable two txgs later), queued on the pool free list, or on the head's deadlist where it stays until the snapshots that hold it are destroyed (path destroy_snapshot).",
+   "alts": [
+    {
+     "id": "cause",
+     "options": [
+      {
+       "id": "overwrite",
+       "label": "Block overwritten (its new copy has been written)"
+      },
+      {
+       "id": "delete",
+       "label": "File removed or truncated (freed range)"
+      }
+     ]
+    },
+    {
+     "id": "birth",
+     "options": [
+      {
+       "id": "after_snap",
+       "label": "Born after the latest snapshot"
+      },
+      {
+       "id": "before_snap",
+       "label": "Born at or before the latest snapshot"
+      },
+      {
+       "id": "after_special",
+       "label": "Born after the latest snapshot, but a gang, dedup or cloned block"
+      }
+     ]
+    },
+    {
+     "id": "owner",
+     "options": [
+      {
+       "id": "plain",
+       "label": "Ordinary file system (no extra steps)"
+      },
+      {
+       "id": "clone",
+       "label": "Clone with a livelist"
+      }
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "wire": "E019"
+    },
+    {
+     "wire": "E020"
+    },
+    {
+     "wire": "E030",
+     "when": [
+      {
+       "group": "cause",
+       "options": [
+        "overwrite"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E031",
+     "when": [
+      {
+       "group": "cause",
+       "options": [
+        "overwrite"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E032",
+     "when": [
+      {
+       "group": "cause",
+       "options": [
+        "delete"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E033",
+     "when": [
+      {
+       "group": "cause",
+       "options": [
+        "delete"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E034",
+     "when": [
+      {
+       "group": "birth",
+       "options": [
+        "after_snap"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E042",
+     "when": [
+      {
+       "group": "birth",
+       "options": [
+        "after_snap"
+       ]
+      }
+     ],
+     "note": "space reusable TXG_DEFER_SIZE txgs later"
+    },
+    {
+     "wire": "E035",
+     "when": [
+      {
+       "group": "birth",
+       "options": [
+        "after_special"
+       ]
+      }
+     ],
+     "note": "freed by the background thread (path free_drain)"
+    },
+    {
+     "wire": "E036",
+     "when": [
+      {
+       "group": "birth",
+       "options": [
+        "before_snap"
+       ]
+      }
+     ],
+     "note": "nothing is freed: the snapshot keeps the block"
+    },
+    {
+     "wire": "E037",
+     "when": [
+      {
+       "group": "cause",
+       "options": [
+        "overwrite"
+       ]
+      },
+      {
+       "group": "birth",
+       "options": [
+        "before_snap"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E038"
+    },
+    {
+     "wire": "E039"
+    },
+    {
+     "wire": "E040",
+     "when": [
+      {
+       "group": "owner",
+       "options": [
+        "clone"
+       ]
+      }
+     ],
+     "note": "only for blocks born after the clone's origin"
+    },
+    {
+     "wire": "E041",
+     "when": [
+      {
+       "group": "owner",
+       "options": [
+        "clone"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "destroy_snapshot",
+   "category": "Destroy",
+   "title": "Destroy a snapshot",
+   "summary": "zfs destroy fs@snap. Next is the following snapshot, or the head if this is the newest snapshot. Next's deadlist is split at the destroyed snapshot's previous-snapshot txg: the newer part (blocks only this snapshot had) goes to the pool free list, the older part stays and receives this snapshot's own deadlist. For the oldest snapshot that txg is the pool origin's (1, or 0 on very old pools), older than any block, so everything on next's deadlist is freed.",
+   "ends": "The snapshot is gone and the command has returned, but its unique blocks are only queued on the pool free list; path free_drain frees them over the next txgs.",
+   "alts": [],
+   "steps": [
+    {
+     "wire": "E076"
+    },
+    {
+     "wire": "E002"
+    },
+    {
+     "wire": "E009"
+    },
+    {
+     "wire": "E015"
+    },
+    {
+     "wire": "E016"
+    },
+    {
+     "wire": "E017"
+    },
+    {
+     "wire": "E018"
+    },
+    {
+     "wire": "E019"
+    },
+    {
+     "wire": "E020"
+    },
+    {
+     "wire": "E023"
+    },
+    {
+     "wire": "E049"
+    },
+    {
+     "wire": "E050"
+    },
+    {
+     "wire": "E051",
+     "note": "oldest snapshot: mintxg is older than any block, the whole deadlist goes"
+    },
+    {
+     "wire": "E052"
+    },
+    {
+     "wire": "E053"
+    },
+    {
+     "wire": "E054"
+    }
+   ]
+  },
+  {
+   "id": "holds_defer",
+   "category": "Destroy",
+   "title": "Hold, deferred destroy and release",
+   "summary": "zfs hold keeps a snapshot; zfs destroy -d then only marks it, and the final zfs release destroys it in the same sync task.",
+   "ends": "The snapshot is destroyed as in path destroy_snapshot; its unique blocks wait on the pool free list (path free_drain).",
+   "alts": [],
+   "steps": [
+    {
+     "wire": "E077"
+    },
+    {
+     "wire": "E006",
+     "note": "zfs hold keep fs@s1"
+    },
+    {
+     "wire": "E013"
+    },
+    {
+     "wire": "E015"
+    },
+    {
+     "wire": "E016"
+    },
+    {
+     "wire": "E017"
+    },
+    {
+     "wire": "E018"
+    },
+    {
+     "wire": "E019"
+    },
+    {
+     "wire": "E020"
+    },
+    {
+     "wire": "E022",
+     "note": "tag added, ds_userrefs is 1"
+    },
+    {
+     "wire": "E002",
+     "note": "zfs destroy -d fs@s1"
+    },
+    {
+     "wire": "E009"
+    },
+    {
+     "wire": "E015"
+    },
+    {
+     "wire": "E016"
+    },
+    {
+     "wire": "E018"
+    },
+    {
+     "wire": "E019"
+    },
+    {
+     "wire": "E020"
+    },
+    {
+     "wire": "E023"
+    },
+    {
+     "wire": "E047",
+     "note": "only marked: defer_destroy=on, nothing freed"
+    },
+    {
+     "wire": "E007",
+     "note": "zfs release keep fs@s1"
+    },
+    {
+     "wire": "E014"
+    },
+    {
+     "wire": "E015"
+    },
+    {
+     "wire": "E016"
+    },
+    {
+     "wire": "E018"
+    },
+    {
+     "wire": "E019"
+    },
+    {
+     "wire": "E020"
+    },
+    {
+     "wire": "E022",
+     "note": "last hold released"
+    },
+    {
+     "wire": "E048"
+    },
+    {
+     "wire": "E050"
+    },
+    {
+     "wire": "E051"
+    },
+    {
+     "wire": "E052"
+    }
+   ]
+  },
+  {
+   "id": "free_drain",
+   "category": "Free",
+   "title": "Background freeing of the pool free list",
+   "summary": "Every txg, in sync pass 1, dsl_scan_sync() frees blocks from dp_free_bpobj until its time or block budget runs out. This is where the space of destroyed snapshots and of parked gang, dedup and cloned blocks comes back.",
+   "ends": "The freeing pool property drops as blocks are freed; each freed segment is allocatable TXG_DEFER_SIZE txgs after the txg that freed it.",
+   "alts": [
+    {
+     "id": "kind",
+     "options": [
+      {
+       "id": "plain",
+       "label": "Ordinary block"
+      },
+      {
+       "id": "special",
+       "label": "Gang, dedup or cloned block (free zio)"
+      }
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "wire": "E019"
+    },
+    {
+     "wire": "E055"
+    },
+    {
+     "wire": "E056"
+    },
+    {
+     "wire": "E057"
+    },
+    {
+     "wire": "E058"
+    },
+    {
+     "wire": "E042",
+     "when": [
+      {
+       "group": "kind",
+       "options": [
+        "plain"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E043",
+     "when": [
+      {
+       "group": "kind",
+       "options": [
+        "special"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E044",
+     "when": [
+      {
+       "group": "kind",
+       "options": [
+        "special"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E045",
+     "when": [
+      {
+       "group": "kind",
+       "options": [
+        "special"
+       ]
+      }
+     ],
+     "note": "a clone still references it: nothing is freed"
+    },
+    {
+     "wire": "E046",
+     "when": [
+      {
+       "group": "kind",
+       "options": [
+        "special"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E059",
+     "note": "budget used up: continue next txg"
+    }
+   ]
+  },
+  {
+   "id": "destroy_filesystem",
+   "category": "Destroy",
+   "title": "Destroy a file system",
+   "summary": "zfs destroy fs, after its snapshots are gone. The destroy itself takes one sync task; the blocks are freed afterwards, a slice per txg.",
+   "ends": "The dataset is gone after one txg; its space returns gradually while freeing counts down. Gang, dedup and cloned blocks take the free zio route of path free_drain.",
+   "alts": [
+    {
+     "id": "method",
+     "options": [
+      {
+       "id": "bptree",
+       "label": "async_destroy feature enabled (normal)"
+      },
+      {
+       "id": "livelist",
+       "label": "The file system is a clone with a livelist"
+      },
+      {
+       "id": "sync",
+       "label": "Old pool without async_destroy"
+      }
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "wire": "E076"
+    },
+    {
+     "wire": "E003"
+    },
+    {
+     "wire": "E010"
+    },
+    {
+     "wire": "E015"
+    },
+    {
+     "wire": "E016"
+    },
+    {
+     "wire": "E017"
+    },
+    {
+     "wire": "E018"
+    },
+    {
+     "wire": "E019"
+    },
+    {
+     "wire": "E020"
+    },
+    {
+     "wire": "E024"
+    },
+    {
+     "wire": "E060"
+    },
+    {
+     "wire": "E061",
+     "when": [
+      {
+       "group": "method",
+       "options": [
+        "bptree"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E062",
+     "when": [
+      {
+       "group": "method",
+       "options": [
+        "livelist"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E063",
+     "when": [
+      {
+       "group": "method",
+       "options": [
+        "sync"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E034",
+     "when": [
+      {
+       "group": "method",
+       "options": [
+        "sync"
+       ]
+      }
+     ],
+     "note": "every block is freed in this one txg"
+    },
+    {
+     "wire": "E055",
+     "when": [
+      {
+       "group": "method",
+       "options": [
+        "bptree"
+       ]
+      }
+     ],
+     "note": "next txgs"
+    },
+    {
+     "wire": "E056",
+     "when": [
+      {
+       "group": "method",
+       "options": [
+        "bptree"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E064",
+     "when": [
+      {
+       "group": "method",
+       "options": [
+        "bptree"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E065",
+     "when": [
+      {
+       "group": "method",
+       "options": [
+        "bptree"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E066",
+     "when": [
+      {
+       "group": "method",
+       "options": [
+        "bptree"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E058",
+     "when": [
+      {
+       "group": "method",
+       "options": [
+        "bptree"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E067",
+     "when": [
+      {
+       "group": "method",
+       "options": [
+        "bptree"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E068",
+     "when": [
+      {
+       "group": "method",
+       "options": [
+        "livelist"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E069",
+     "when": [
+      {
+       "group": "method",
+       "options": [
+        "livelist"
+       ]
+      }
+     ]
+    },
+    {
+     "wire": "E042"
+    }
+   ]
+  },
+  {
+   "id": "rollback",
+   "category": "Rollback",
+   "title": "Roll back to the latest snapshot",
+   "summary": "zfs rollback fs@snap. The head swaps contents with a temporary clone of the snapshot; destroying that clone discards every block born after the snapshot, in the background.",
+   "ends": "The file system shows the snapshot's contents as soon as the command returns; the discarded blocks come back over the next txgs. On a pool without async_destroy the clone is destroyed as in the sync option of path destroy_filesystem.",
+   "alts": [],
+   "steps": [
+    {
+     "wire": "E078"
+    },
+    {
+     "wire": "E004"
+    },
+    {
+     "wire": "E011"
+    },
+    {
+     "wire": "E015"
+    },
+    {
+     "wire": "E016"
+    },
+    {
+     "wire": "E017"
+    },
+    {
+     "wire": "E018"
+    },
+    {
+     "wire": "E019"
+    },
+    {
+     "wire": "E020"
+    },
+    {
+     "wire": "E025"
+    },
+    {
+     "wire": "E073"
+    },
+    {
+     "wire": "E070"
+    },
+    {
+     "wire": "E071"
+    },
+    {
+     "wire": "E072"
+    },
+    {
+     "wire": "E060",
+     "note": "the old head's deadlist: its blocks are still in the snapshot"
+    },
+    {
+     "wire": "E061",
+     "note": "only blocks born after the snapshot will be freed"
+    },
+    {
+     "wire": "E055",
+     "note": "next txgs"
+    },
+    {
+     "wire": "E056"
+    },
+    {
+     "wire": "E064"
+    },
+    {
+     "wire": "E065"
+    },
+    {
+     "wire": "E066"
+    },
+    {
+     "wire": "E058"
+    },
+    {
+     "wire": "E042"
+    }
+   ]
+  },
+  {
+   "id": "bookmark_create",
+   "category": "Bookmark",
+   "title": "Create a bookmark",
+   "summary": "zfs bookmark fs@snap fs#mark records the snapshot's identity without keeping any blocks.",
+   "ends": "The bookmark exists. Destroying its snapshot frees the snapshot's blocks as usual (path destroy_snapshot); the bookmark keeps the guid and txg, which is all an incremental zfs send -i fs#mark needs as its source (see `zfs-send-receive:incr_send`).",
+   "alts": [],
+   "steps": [
+    {
+     "wire": "E079"
+    },
+    {
+     "wire": "E005"
+    },
+    {
+     "wire": "E012"
+    },
+    {
+     "wire": "E015"
+    },
+    {
+     "wire": "E016"
+    },
+    {
+     "wire": "E017"
+    },
+    {
+     "wire": "E018"
+    },
+    {
+     "wire": "E019"
+    },
+    {
+     "wire": "E020"
+    },
+    {
+     "wire": "E026"
+    },
+    {
+     "wire": "E074"
+    }
+   ]
+  }
+ ],
+ "stages": [],
+ "pipelines": [],
+ "pipelineRuntimeNote": "",
+ "about": {
+  "model": [
+   "A snapshot is a copy of one block pointer. Taking it copies no data: the snapshot and the head share every block, and the head remembers the snapshot's txg as `ds_prev_snap_txg`.",
+   "When the head stops using a block (overwrite or delete), one comparison decides its fate. Born after the latest snapshot (birth > `ds_prev_snap_txg`): only the head had it, so it is freed now. Otherwise the latest snapshot still has it, and it goes on the head's deadlist. That is why deleting files frees nothing while snapshots hold them.",
+   "A dataset's deadlist lists the blocks its previous snapshot references but it does not. It is split into sub-lists by birth txg. Taking a snapshot hands the head's deadlist to the new snapshot and gives the head a new, empty one.",
+   "Destroying a snapshot frees exactly the blocks on the next dataset's deadlist that were born after the destroyed snapshot's previous snapshot: only the destroyed snapshot had them. Its own deadlist moves to the next dataset. A snapshot's `used` property is this unique space.",
+   "Destroys give space back in the background. Snapshot destroys and file-system destroys only queue blocks (pool free list, bptree, clone livelist); `dsl_scan_sync()` frees a time-limited slice each txg. The pool property `freeing` shows what is left, and freed space is reusable only TXG_DEFER_SIZE (2) txgs later.",
+   "Rollback never rewinds blocks in place. The head swaps contents with a temporary clone of the latest snapshot, and that clone, which now holds everything written since the snapshot, is destroyed in the background.",
+   "A bookmark is a snapshot's guid and creation txg without any blocks. It costs no space, survives its snapshot and can still be the incremental source of `zfs send`.",
+   "All these operations are sync tasks: they run once in syncing context after the txg's data has been written, and the command returns when that txg is on disk."
+  ],
+  "simplifications": [
+   "Old on-disk formats are not drawn: pre-deadlist pools (process_old_deadlist()) are left out, and pools without async_destroy appear only as the sync option of path destroy_filesystem.",
+   "Remap deadlists and obsolete counts (device removal) are left out, although the snapshot, destroy and block-kill code also maintains them.",
+   "Recursive commands are drawn for one dataset. zfs snapshot -r is still one sync task; zfs destroy -r issues one request per batch of snapshots and one per file system.",
+   "Promote, rename, clone creation and bookmark copy and destroy are not drawn. Clones appear only through their livelist and the rollback clone.",
+   "Space accounting is one node. Refreservation, quotas and the roll-up into parent directories are omitted.",
+   "The intent log of a destroyed dataset (zil_destroy_sync()) and intent-log blocks found by the old synchronous destroy are not drawn.",
+   "dsl_scan_sync() also runs scrubs and resilvers, and dsl_process_async_destroys() also processes the obsolete bpobj; only the free work is drawn.",
+   "The deadlist key bookkeeping for bookmarks and clones is summarised in two wires (E029, E054)."
+  ]
+ },
+ "timelines": [
+  {
+   "id": "snapshot_overwrite",
+   "title": "Snapshot, then overwrite a block twice",
+   "summary": "One snapshot and two overwrites of the same block. The first overwrite kills a block the snapshot shares, which goes on the deadlist; the second kills a block born after the snapshot, which is freed at once.",
+   "steps": [
+    {
+     "n": 1,
+     "txg": 100,
+     "caption": "fs holds blocks A and B and has no snapshot yet",
+     "path": null,
+     "pathStep": null,
+     "wires": [],
+     "notes": [
+      "Without a snapshot, any block fs stops using is freed at once"
+     ],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": null,
+       "txg": null,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 90,
+       "in": [
+        "fs"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 95,
+       "in": [
+        "fs"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "txg": 105,
+     "caption": "zfs snapshot fs@s1 in txg 105",
+     "path": "snapshot_create",
+     "pathStep": 11,
+     "wires": [
+      "E027",
+      "E028"
+     ],
+     "notes": [
+      "Nothing is copied. fs@s1 shares the root block pointer of fs, and the ds_prev_snap_txg of fs becomes 105."
+     ],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": "fs@s1",
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs@s1",
+       "kind": "snapshot",
+       "prev": null,
+       "txg": 105,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 90,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 95,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "txg": 110,
+     "caption": "Overwrite B. Its birth 95 is not greater than 105, so B goes on the deadlist of fs",
+     "path": "overwrite",
+     "pathStep": 10,
+     "wires": [
+      "E036",
+      "E038"
+     ],
+     "notes": [
+      "No space comes back. B now counts in the used property of fs@s1 and in the usedbysnapshots property of fs."
+     ],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": "fs@s1",
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs@s1",
+       "kind": "snapshot",
+       "prev": null,
+       "txg": 105,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 90,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 95,
+       "in": [
+        "fs@s1"
+       ],
+       "dead": "fs",
+       "state": "live"
+      },
+      {
+       "id": "B2",
+       "birth": 110,
+       "in": [
+        "fs"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "txg": 115,
+     "caption": "Overwrite B2. Its birth 110 is greater than 105, so B2 is freed in this txg",
+     "path": "overwrite",
+     "pathStep": 7,
+     "wires": [
+      "E034",
+      "E042"
+     ],
+     "notes": [
+      "metaslab_free() holds the space back for TXG_DEFER_SIZE (2) txgs"
+     ],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": "fs@s1",
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs@s1",
+       "kind": "snapshot",
+       "prev": null,
+       "txg": 105,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 90,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 95,
+       "in": [
+        "fs@s1"
+       ],
+       "dead": "fs",
+       "state": "live"
+      },
+      {
+       "id": "B2",
+       "birth": 110,
+       "in": [],
+       "dead": null,
+       "state": "deferred"
+      },
+      {
+       "id": "B3",
+       "birth": 115,
+       "in": [
+        "fs"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "txg": 118,
+     "caption": "The deferral of B2 is over and its space can be allocated again",
+     "path": null,
+     "pathStep": null,
+     "wires": [
+      "E042"
+     ],
+     "notes": [],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": "fs@s1",
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs@s1",
+       "kind": "snapshot",
+       "prev": null,
+       "txg": 105,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 90,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 95,
+       "in": [
+        "fs@s1"
+       ],
+       "dead": "fs",
+       "state": "live"
+      },
+      {
+       "id": "B2",
+       "birth": 110,
+       "in": [],
+       "dead": null,
+       "state": "freed"
+      },
+      {
+       "id": "B3",
+       "birth": 115,
+       "in": [
+        "fs"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "destroy_middle",
+   "title": "Three snapshots, destroy the middle one",
+   "summary": "Blocks die between different snapshots, then the middle snapshot is destroyed. Only the block that the middle snapshot alone held is freed; a block the older snapshot still needs stays on the deadlist and becomes unique to that snapshot.",
+   "steps": [
+    {
+     "n": 1,
+     "txg": 100,
+     "caption": "zfs snapshot fs@s1 while fs holds A, D and B",
+     "path": "snapshot_create",
+     "pathStep": 11,
+     "wires": [
+      "E027"
+     ],
+     "notes": [],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": "fs@s1",
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs@s1",
+       "kind": "snapshot",
+       "prev": null,
+       "txg": 100,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 90,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "D",
+       "birth": 93,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 95,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "txg": 105,
+     "caption": "C was written in txg 103; now B is overwritten by B2 and goes on the deadlist of fs (95 is not greater than 100)",
+     "path": "overwrite",
+     "pathStep": 10,
+     "wires": [
+      "E036"
+     ],
+     "notes": [],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": "fs@s1",
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs@s1",
+       "kind": "snapshot",
+       "prev": null,
+       "txg": 100,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 90,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "D",
+       "birth": 93,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 95,
+       "in": [
+        "fs@s1"
+       ],
+       "dead": "fs",
+       "state": "live"
+      },
+      {
+       "id": "C",
+       "birth": 103,
+       "in": [
+        "fs"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "B2",
+       "birth": 105,
+       "in": [
+        "fs"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "txg": 110,
+     "caption": "zfs snapshot fs@s2. It takes over the deadlist of fs, with B in it",
+     "path": "snapshot_create",
+     "pathStep": 11,
+     "wires": [
+      "E027"
+     ],
+     "notes": [
+      "fs starts a new, empty deadlist"
+     ],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": "fs@s2",
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs@s2",
+       "kind": "snapshot",
+       "prev": "fs@s1",
+       "txg": 110,
+       "origin": null
+      },
+      {
+       "name": "fs@s1",
+       "kind": "snapshot",
+       "prev": null,
+       "txg": 100,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 90,
+       "in": [
+        "fs",
+        "fs@s2",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "D",
+       "birth": 93,
+       "in": [
+        "fs",
+        "fs@s2",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 95,
+       "in": [
+        "fs@s1"
+       ],
+       "dead": "fs@s2",
+       "state": "live"
+      },
+      {
+       "id": "C",
+       "birth": 103,
+       "in": [
+        "fs",
+        "fs@s2"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "B2",
+       "birth": 105,
+       "in": [
+        "fs",
+        "fs@s2"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "txg": 115,
+     "caption": "Remove the file that holds C and D. Births 103 and 93 are not greater than 110, so both go on the deadlist of fs",
+     "path": "overwrite",
+     "pathStep": 6,
+     "wires": [
+      "E033",
+      "E036"
+     ],
+     "notes": [
+      "D lands in the sub-list for births up to 100, C in the sub-list for births after 100"
+     ],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": "fs@s2",
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs@s2",
+       "kind": "snapshot",
+       "prev": "fs@s1",
+       "txg": 110,
+       "origin": null
+      },
+      {
+       "name": "fs@s1",
+       "kind": "snapshot",
+       "prev": null,
+       "txg": 100,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 90,
+       "in": [
+        "fs",
+        "fs@s2",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "D",
+       "birth": 93,
+       "in": [
+        "fs@s2",
+        "fs@s1"
+       ],
+       "dead": "fs",
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 95,
+       "in": [
+        "fs@s1"
+       ],
+       "dead": "fs@s2",
+       "state": "live"
+      },
+      {
+       "id": "C",
+       "birth": 103,
+       "in": [
+        "fs@s2"
+       ],
+       "dead": "fs",
+       "state": "live"
+      },
+      {
+       "id": "B2",
+       "birth": 105,
+       "in": [
+        "fs",
+        "fs@s2"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "txg": 120,
+     "caption": "zfs snapshot fs@s3. It takes over the deadlist with C and D",
+     "path": "snapshot_create",
+     "pathStep": 11,
+     "wires": [
+      "E027"
+     ],
+     "notes": [],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": "fs@s3",
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs@s3",
+       "kind": "snapshot",
+       "prev": "fs@s2",
+       "txg": 120,
+       "origin": null
+      },
+      {
+       "name": "fs@s2",
+       "kind": "snapshot",
+       "prev": "fs@s1",
+       "txg": 110,
+       "origin": null
+      },
+      {
+       "name": "fs@s1",
+       "kind": "snapshot",
+       "prev": null,
+       "txg": 100,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 90,
+       "in": [
+        "fs",
+        "fs@s3",
+        "fs@s2",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "D",
+       "birth": 93,
+       "in": [
+        "fs@s2",
+        "fs@s1"
+       ],
+       "dead": "fs@s3",
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 95,
+       "in": [
+        "fs@s1"
+       ],
+       "dead": "fs@s2",
+       "state": "live"
+      },
+      {
+       "id": "C",
+       "birth": 103,
+       "in": [
+        "fs@s2"
+       ],
+       "dead": "fs@s3",
+       "state": "live"
+      },
+      {
+       "id": "B2",
+       "birth": 105,
+       "in": [
+        "fs",
+        "fs@s3",
+        "fs@s2"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "txg": 125,
+     "caption": "zfs destroy fs@s2. On the deadlist of fs@s3, the sub-lists for births after 100 (the previous snapshot of fs@s2) go to the pool free list, so C is queued",
+     "path": "destroy_snapshot",
+     "pathStep": 12,
+     "wires": [
+      "E050",
+      "E051",
+      "E052"
+     ],
+     "notes": [
+      "D was born at 93, so fs@s1 still needs it. It stays on the deadlist of fs@s3 and now counts in the used property of fs@s1.",
+      "The deadlist of fs@s2 (with B) is merged into the deadlist of fs@s3"
+     ],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": "fs@s3",
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs@s3",
+       "kind": "snapshot",
+       "prev": "fs@s1",
+       "txg": 120,
+       "origin": null
+      },
+      {
+       "name": "fs@s1",
+       "kind": "snapshot",
+       "prev": null,
+       "txg": 100,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 90,
+       "in": [
+        "fs",
+        "fs@s3",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "D",
+       "birth": 93,
+       "in": [
+        "fs@s1"
+       ],
+       "dead": "fs@s3",
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 95,
+       "in": [
+        "fs@s1"
+       ],
+       "dead": "fs@s3",
+       "state": "live"
+      },
+      {
+       "id": "C",
+       "birth": 103,
+       "in": [],
+       "dead": null,
+       "state": "async"
+      },
+      {
+       "id": "B2",
+       "birth": 105,
+       "in": [
+        "fs",
+        "fs@s3"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 7,
+     "txg": 126,
+     "caption": "In the next sync, dsl_process_async_destroys() frees C from the pool free list",
+     "path": "free_drain",
+     "pathStep": 5,
+     "wires": [
+      "E057",
+      "E058"
+     ],
+     "notes": [],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": "fs@s3",
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs@s3",
+       "kind": "snapshot",
+       "prev": "fs@s1",
+       "txg": 120,
+       "origin": null
+      },
+      {
+       "name": "fs@s1",
+       "kind": "snapshot",
+       "prev": null,
+       "txg": 100,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 90,
+       "in": [
+        "fs",
+        "fs@s3",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "D",
+       "birth": 93,
+       "in": [
+        "fs@s1"
+       ],
+       "dead": "fs@s3",
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 95,
+       "in": [
+        "fs@s1"
+       ],
+       "dead": "fs@s3",
+       "state": "live"
+      },
+      {
+       "id": "C",
+       "birth": 103,
+       "in": [],
+       "dead": null,
+       "state": "deferred"
+      },
+      {
+       "id": "B2",
+       "birth": 105,
+       "in": [
+        "fs",
+        "fs@s3"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "delete_then_destroy",
+   "title": "Delete a file, then destroy the snapshot that holds it",
+   "summary": "The everyday case: removing a file frees nothing while a snapshot holds its blocks; destroying the snapshot queues them, and the background free returns the space a txg later.",
+   "steps": [
+    {
+     "n": 1,
+     "txg": 200,
+     "caption": "zfs snapshot fs@s1. The file blocks F1 and F2 and another block G were born before it",
+     "path": "snapshot_create",
+     "pathStep": 10,
+     "wires": [
+      "E021"
+     ],
+     "notes": [],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": "fs@s1",
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs@s1",
+       "kind": "snapshot",
+       "prev": null,
+       "txg": 200,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "F1",
+       "birth": 150,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "F2",
+       "birth": 160,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "G",
+       "birth": 170,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "txg": 210,
+     "caption": "rm the file. Births 150 and 160 are not greater than 200, so dsl_dataset_block_kill() puts F1 and F2 on the deadlist of fs",
+     "path": "overwrite",
+     "pathStep": 6,
+     "wires": [
+      "E033",
+      "E036",
+      "E038"
+     ],
+     "notes": [
+      "The pool gets no space back. fs references less, and the used property of fs@s1 grows by F1 and F2."
+     ],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": "fs@s1",
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs@s1",
+       "kind": "snapshot",
+       "prev": null,
+       "txg": 200,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "F1",
+       "birth": 150,
+       "in": [
+        "fs@s1"
+       ],
+       "dead": "fs",
+       "state": "live"
+      },
+      {
+       "id": "F2",
+       "birth": 160,
+       "in": [
+        "fs@s1"
+       ],
+       "dead": "fs",
+       "state": "live"
+      },
+      {
+       "id": "G",
+       "birth": 170,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "txg": 220,
+     "caption": "zfs destroy fs@s1. Its previous-snapshot txg is the pool origin, older than any block, so the whole deadlist of fs goes to the pool free list",
+     "path": "destroy_snapshot",
+     "pathStep": 13,
+     "wires": [
+      "E050",
+      "E051"
+     ],
+     "notes": [
+      "The command returns now; the pool property freeing shows F1 and F2 until the background free has run"
+     ],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": null,
+       "txg": null,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "F1",
+       "birth": 150,
+       "in": [],
+       "dead": null,
+       "state": "async"
+      },
+      {
+       "id": "F2",
+       "birth": 160,
+       "in": [],
+       "dead": null,
+       "state": "async"
+      },
+      {
+       "id": "G",
+       "birth": 170,
+       "in": [
+        "fs"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "txg": 221,
+     "caption": "In the next sync, the background free releases F1 and F2",
+     "path": "free_drain",
+     "pathStep": 5,
+     "wires": [
+      "E058"
+     ],
+     "notes": [
+      "Their space is allocatable from txg 224"
+     ],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": null,
+       "txg": null,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "F1",
+       "birth": 150,
+       "in": [],
+       "dead": null,
+       "state": "deferred"
+      },
+      {
+       "id": "F2",
+       "birth": 160,
+       "in": [],
+       "dead": null,
+       "state": "deferred"
+      },
+      {
+       "id": "G",
+       "birth": 170,
+       "in": [
+        "fs"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "rollback",
+   "title": "Roll back to the latest snapshot",
+   "summary": "A rollback after an overwrite and a new write. The head gets the snapshot's tree back; the blocks born after the snapshot are queued in the bptree and freed in the background.",
+   "steps": [
+    {
+     "n": 1,
+     "txg": 300,
+     "caption": "zfs snapshot fs@s1 while fs holds A and B",
+     "path": "snapshot_create",
+     "pathStep": 11,
+     "wires": [
+      "E027",
+      "E028"
+     ],
+     "notes": [],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": "fs@s1",
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs@s1",
+       "kind": "snapshot",
+       "prev": null,
+       "txg": 300,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 250,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 260,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "txg": 305,
+     "caption": "C was written in txg 304; now B is overwritten by B2 and goes on the deadlist of fs",
+     "path": "overwrite",
+     "pathStep": 10,
+     "wires": [
+      "E036"
+     ],
+     "notes": [],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": "fs@s1",
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs@s1",
+       "kind": "snapshot",
+       "prev": null,
+       "txg": 300,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 250,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 260,
+       "in": [
+        "fs@s1"
+       ],
+       "dead": "fs",
+       "state": "live"
+      },
+      {
+       "id": "C",
+       "birth": 304,
+       "in": [
+        "fs"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "B2",
+       "birth": 305,
+       "in": [
+        "fs"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "txg": 310,
+     "caption": "zfs rollback fs@s1. The head swaps contents with the clone %rollback of fs@s1 and references A and B again",
+     "path": "rollback",
+     "pathStep": 12,
+     "wires": [
+      "E070",
+      "E071",
+      "E072"
+     ],
+     "notes": [
+      "The old deadlist of fs (with B) is dropped unread, because fs@s1 still holds B. The head starts with an empty deadlist.",
+      "Destroying the clone put its tree in the bptree with birth txg 300, so only C and B2 will be freed"
+     ],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": "fs@s1",
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs@s1",
+       "kind": "snapshot",
+       "prev": null,
+       "txg": 300,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 250,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 260,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "C",
+       "birth": 304,
+       "in": [],
+       "dead": null,
+       "state": "async"
+      },
+      {
+       "id": "B2",
+       "birth": 305,
+       "in": [],
+       "dead": null,
+       "state": "async"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "txg": 311,
+     "caption": "In the next sync, the bptree traversal frees C and B2",
+     "path": "rollback",
+     "pathStep": 19,
+     "wires": [
+      "E066",
+      "E058"
+     ],
+     "notes": [],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": "fs@s1",
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs@s1",
+       "kind": "snapshot",
+       "prev": null,
+       "txg": 300,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 250,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 260,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "C",
+       "birth": 304,
+       "in": [],
+       "dead": null,
+       "state": "deferred"
+      },
+      {
+       "id": "B2",
+       "birth": 305,
+       "in": [],
+       "dead": null,
+       "state": "deferred"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "async_fs_destroy",
+   "title": "Destroy a file system over several txgs",
+   "summary": "zfs destroy returns after one txg, but the blocks are freed a time-limited slice per txg. The pool property freeing counts down while it happens.",
+   "steps": [
+    {
+     "n": 1,
+     "txg": 500,
+     "caption": "tank/big holds P, Q, R and S and has no snapshots; tank/home is another file system",
+     "path": null,
+     "pathStep": null,
+     "wires": [],
+     "notes": [],
+     "datasets": [
+      {
+       "name": "tank/big",
+       "kind": "head",
+       "prev": null,
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "tank/home",
+       "kind": "head",
+       "prev": null,
+       "txg": null,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "P",
+       "birth": 400,
+       "in": [
+        "tank/big"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "Q",
+       "birth": 410,
+       "in": [
+        "tank/big"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "R",
+       "birth": 420,
+       "in": [
+        "tank/big"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "S",
+       "birth": 430,
+       "in": [
+        "tank/big"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "H",
+       "birth": 450,
+       "in": [
+        "tank/home"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "txg": 505,
+     "caption": "zfs destroy tank/big. dsl_async_dataset_destroy() puts its root block pointer in the bptree and moves its space to freeing",
+     "path": "destroy_filesystem",
+     "pathStep": 12,
+     "wires": [
+      "E061"
+     ],
+     "notes": [
+      "The entry's birth txg is the ds_prev_snap_txg of tank/big, older than all its blocks, so all four will be freed. Nothing is free yet."
+     ],
+     "datasets": [
+      {
+       "name": "tank/home",
+       "kind": "head",
+       "prev": null,
+       "txg": null,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "P",
+       "birth": 400,
+       "in": [],
+       "dead": null,
+       "state": "async"
+      },
+      {
+       "id": "Q",
+       "birth": 410,
+       "in": [],
+       "dead": null,
+       "state": "async"
+      },
+      {
+       "id": "R",
+       "birth": 420,
+       "in": [],
+       "dead": null,
+       "state": "async"
+      },
+      {
+       "id": "S",
+       "birth": 430,
+       "in": [],
+       "dead": null,
+       "state": "async"
+      },
+      {
+       "id": "H",
+       "birth": 450,
+       "in": [
+        "tank/home"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "txg": 506,
+     "caption": "Next sync. The traversal frees P and Q, then dsl_scan_async_block_should_pause() stops it for this txg",
+     "path": "destroy_filesystem",
+     "pathStep": 20,
+     "wires": [
+      "E066",
+      "E059"
+     ],
+     "notes": [
+      "For example zfs_free_min_time_ms (500 ms) has passed while a txg sync is waiting. The traversal position is saved in the bptree entry."
+     ],
+     "datasets": [
+      {
+       "name": "tank/home",
+       "kind": "head",
+       "prev": null,
+       "txg": null,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "P",
+       "birth": 400,
+       "in": [],
+       "dead": null,
+       "state": "deferred"
+      },
+      {
+       "id": "Q",
+       "birth": 410,
+       "in": [],
+       "dead": null,
+       "state": "deferred"
+      },
+      {
+       "id": "R",
+       "birth": 420,
+       "in": [],
+       "dead": null,
+       "state": "async"
+      },
+      {
+       "id": "S",
+       "birth": 430,
+       "in": [],
+       "dead": null,
+       "state": "async"
+      },
+      {
+       "id": "H",
+       "birth": 450,
+       "in": [
+        "tank/home"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "txg": 507,
+     "caption": "Next sync. The traversal resumes at the saved bookmark and frees R and S; the bptree is empty and async_destroy is deactivated",
+     "path": "destroy_filesystem",
+     "pathStep": 18,
+     "wires": [
+      "E067",
+      "E064"
+     ],
+     "notes": [
+      "freeing is back to 0, but none of the space is allocatable yet"
+     ],
+     "datasets": [
+      {
+       "name": "tank/home",
+       "kind": "head",
+       "prev": null,
+       "txg": null,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "P",
+       "birth": 400,
+       "in": [],
+       "dead": null,
+       "state": "deferred"
+      },
+      {
+       "id": "Q",
+       "birth": 410,
+       "in": [],
+       "dead": null,
+       "state": "deferred"
+      },
+      {
+       "id": "R",
+       "birth": 420,
+       "in": [],
+       "dead": null,
+       "state": "deferred"
+      },
+      {
+       "id": "S",
+       "birth": 430,
+       "in": [],
+       "dead": null,
+       "state": "deferred"
+      },
+      {
+       "id": "H",
+       "birth": 450,
+       "in": [
+        "tank/home"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "txg": 510,
+     "caption": "The deferrals are over; all four blocks are allocatable",
+     "path": null,
+     "pathStep": null,
+     "wires": [
+      "E042"
+     ],
+     "notes": [],
+     "datasets": [
+      {
+       "name": "tank/home",
+       "kind": "head",
+       "prev": null,
+       "txg": null,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "P",
+       "birth": 400,
+       "in": [],
+       "dead": null,
+       "state": "freed"
+      },
+      {
+       "id": "Q",
+       "birth": 410,
+       "in": [],
+       "dead": null,
+       "state": "freed"
+      },
+      {
+       "id": "R",
+       "birth": 420,
+       "in": [],
+       "dead": null,
+       "state": "freed"
+      },
+      {
+       "id": "S",
+       "birth": 430,
+       "in": [],
+       "dead": null,
+       "state": "freed"
+      },
+      {
+       "id": "H",
+       "birth": 450,
+       "in": [
+        "tank/home"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "bookmark_source",
+   "title": "Bookmark a snapshot, then destroy the snapshot",
+   "summary": "A bookmark keeps no blocks: destroying its snapshot frees the snapshot's blocks as usual, and the bookmark still identifies the snapshot as an incremental send source.",
+   "steps": [
+    {
+     "n": 1,
+     "txg": 600,
+     "caption": "zfs snapshot fs@s1 while fs holds A and B",
+     "path": "snapshot_create",
+     "pathStep": 11,
+     "wires": [
+      "E027"
+     ],
+     "notes": [],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": "fs@s1",
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs@s1",
+       "kind": "snapshot",
+       "prev": null,
+       "txg": 600,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 550,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 560,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 2,
+     "txg": 602,
+     "caption": "zfs bookmark fs@s1 fs#b1",
+     "path": "bookmark_create",
+     "pathStep": 11,
+     "wires": [
+      "E074"
+     ],
+     "notes": [
+      "b1 records the guid and creation txg 600 of fs@s1. It references no block."
+     ],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": "fs@s1",
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs@s1",
+       "kind": "snapshot",
+       "prev": null,
+       "txg": 600,
+       "origin": null
+      },
+      {
+       "name": "fs#b1",
+       "kind": "bookmark",
+       "prev": null,
+       "txg": 600,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 550,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 560,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 3,
+     "txg": 605,
+     "caption": "Overwrite B. Its birth 560 is not greater than 600, so B goes on the deadlist of fs",
+     "path": "overwrite",
+     "pathStep": 10,
+     "wires": [
+      "E036",
+      "E039"
+     ],
+     "notes": [
+      "With the bookmark_written feature, B is also added to the space b1 counts as freed since it was taken"
+     ],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": "fs@s1",
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs@s1",
+       "kind": "snapshot",
+       "prev": null,
+       "txg": 600,
+       "origin": null
+      },
+      {
+       "name": "fs#b1",
+       "kind": "bookmark",
+       "prev": null,
+       "txg": 600,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 550,
+       "in": [
+        "fs",
+        "fs@s1"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 560,
+       "in": [
+        "fs@s1"
+       ],
+       "dead": "fs",
+       "state": "live"
+      },
+      {
+       "id": "B2",
+       "birth": 605,
+       "in": [
+        "fs"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 4,
+     "txg": 610,
+     "caption": "zfs destroy fs@s1. Only fs@s1 held B, so B goes to the pool free list; the bookmark stays",
+     "path": "destroy_snapshot",
+     "pathStep": 11,
+     "wires": [
+      "E049",
+      "E051"
+     ],
+     "notes": [
+      "dsl_bookmark_ds_destroyed() clears the snapshot-exists flag of b1; the bookmark itself is untouched"
+     ],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": null,
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs#b1",
+       "kind": "bookmark",
+       "prev": null,
+       "txg": 600,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 550,
+       "in": [
+        "fs"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 560,
+       "in": [],
+       "dead": null,
+       "state": "async"
+      },
+      {
+       "id": "B2",
+       "birth": 605,
+       "in": [
+        "fs"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "txg": 611,
+     "caption": "In the next sync, the background free releases B",
+     "path": "free_drain",
+     "pathStep": 5,
+     "wires": [
+      "E058"
+     ],
+     "notes": [],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": null,
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs#b1",
+       "kind": "bookmark",
+       "prev": null,
+       "txg": 600,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 550,
+       "in": [
+        "fs"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 560,
+       "in": [],
+       "dead": null,
+       "state": "deferred"
+      },
+      {
+       "id": "B2",
+       "birth": 605,
+       "in": [
+        "fs"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    },
+    {
+     "n": 6,
+     "txg": 620,
+     "caption": "zfs snapshot fs@s2",
+     "path": "snapshot_create",
+     "pathStep": 11,
+     "wires": [
+      "E027"
+     ],
+     "notes": [
+      "zfs send -i fs#b1 fs@s2 still works without fs@s1: the bookmark supplies the source guid and txg 600, and the stream carries the blocks born after it (B2)"
+     ],
+     "datasets": [
+      {
+       "name": "fs",
+       "kind": "head",
+       "prev": "fs@s2",
+       "txg": null,
+       "origin": null
+      },
+      {
+       "name": "fs@s2",
+       "kind": "snapshot",
+       "prev": null,
+       "txg": 620,
+       "origin": null
+      },
+      {
+       "name": "fs#b1",
+       "kind": "bookmark",
+       "prev": null,
+       "txg": 600,
+       "origin": null
+      }
+     ],
+     "blocks": [
+      {
+       "id": "A",
+       "birth": 550,
+       "in": [
+        "fs",
+        "fs@s2"
+       ],
+       "dead": null,
+       "state": "live"
+      },
+      {
+       "id": "B",
+       "birth": 560,
+       "in": [],
+       "dead": null,
+       "state": "freed"
+      },
+      {
+       "id": "B2",
+       "birth": 605,
+       "in": [
+        "fs",
+        "fs@s2"
+       ],
+       "dead": null,
+       "state": "live"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "page": {
+  "id": "zfs-snapshot-lifecycle",
+  "title": "ZFS Snapshots, Destroy and Rollback",
+  "file": "zfs-snapshot-lifecycle.html",
+  "intro": "This diagram shows what happens to a block when a file system that has snapshots stops using it, and what each snapshot operation does with those blocks: why deleting a file frees no space while a snapshot holds it, what destroying a snapshot frees and why the space comes back later, why destroying a large file system is asynchronous, what a rollback throws away, and what a bookmark keeps. It has a node graph (sections 6 to 10) and a timeline view (Appendix E) that plays the same rules as block states over time."
+ },
+ "suite": {
+  "pages": [
+   {
+    "id": "zfs-io-flow",
+    "title": "ZFS I/O Flow",
+    "file": "zfs-io-flow.html"
+   },
+   {
+    "id": "zfs-scrub-resilver",
+    "title": "ZFS Scrub, Resilver and Rebuild",
+    "file": "zfs-scrub-resilver.html"
+   },
+   {
+    "id": "zfs-send-receive",
+    "title": "ZFS Send and Receive",
+    "file": "zfs-send-receive.html"
+   },
+   {
+    "id": "zfs-snapshot-lifecycle",
+    "title": "ZFS Snapshots, Destroy and Rollback",
+    "file": "zfs-snapshot-lifecycle.html"
+   },
+   {
+    "id": "zfs-fault-management",
+    "title": "ZFS Fault Management",
+    "file": "zfs-fault-management.html"
+   },
+   {
+    "id": "zfs-encryption-keys",
+    "title": "ZFS Encryption Keys",
+    "file": "zfs-encryption-keys.html"
+   },
+   {
+    "id": "zfs-pool-create",
+    "title": "ZFS Pool Creation",
+    "file": "zfs-pool-create.html"
+   },
+   {
+    "id": "zfs-dataset-create",
+    "title": "ZFS Dataset Creation",
+    "file": "zfs-dataset-create.html"
+   },
+   {
+    "id": "zfs-pool-import-export",
+    "title": "ZFS Pool Import and Export",
+    "file": "zfs-pool-import-export.html"
+   },
+   {
+    "id": "zfs-destroy",
+    "title": "ZFS Destroy Actions",
+    "file": "zfs-destroy.html"
+   }
+  ],
+  "alsoIn": {
+   "admin": [
+    "zfs-scrub-resilver",
+    "zfs-send-receive",
+    "zfs-fault-management",
+    "zfs-encryption-keys",
+    "zfs-pool-create",
+    "zfs-dataset-create",
+    "zfs-pool-import-export",
+    "zfs-destroy"
+   ],
+   "zfs_cmd": [
+    "zfs-encryption-keys",
+    "zfs-dataset-create",
+    "zfs-destroy"
+   ],
+   "libzfs": [
+    "zfs-pool-create",
+    "zfs-destroy"
+   ],
+   "zfs_ioctl": [
+    "zfs-destroy"
+   ],
+   "dsl_entry": [
+    "zfs-destroy"
+   ],
+   "sync_task": [
+    "zfs-send-receive",
+    "zfs-dataset-create",
+    "zfs-destroy"
+   ],
+   "dmu_tx": [
+    "zfs-io-flow",
+    "zfs-send-receive",
+    "zfs-fault-management",
+    "zfs-dataset-create"
+   ],
+   "txg_sync": [
+    "zfs-io-flow",
+    "zfs-scrub-resilver",
+    "zfs-send-receive",
+    "zfs-pool-create",
+    "zfs-dataset-create",
+    "zfs-pool-import-export",
+    "zfs-destroy"
+   ],
+   "spa_sync": [
+    "zfs-io-flow",
+    "zfs-scrub-resilver",
+    "zfs-send-receive",
+    "zfs-fault-management",
+    "zfs-encryption-keys",
+    "zfs-pool-create",
+    "zfs-dataset-create",
+    "zfs-pool-import-export",
+    "zfs-destroy"
+   ],
+   "dsl_pool_sync": [
+    "zfs-io-flow",
+    "zfs-send-receive",
+    "zfs-pool-create",
+    "zfs-dataset-create",
+    "zfs-destroy"
+   ],
+   "dnode_sync": [
+    "zfs-io-flow"
+   ],
+   "dbuf_write_cb": [
+    "zfs-io-flow"
+   ],
+   "hold_sync": [
+    "zfs-destroy"
+   ],
+   "destroy_snap": [
+    "zfs-destroy"
+   ],
+   "destroy_head": [
+    "zfs-destroy"
+   ],
+   "deadlist_split": [
+    "zfs-destroy"
+   ],
+   "free_bpobj": [
+    "zfs-destroy"
+   ],
+   "bptree": [
+    "zfs-destroy"
+   ],
+   "async_destroy": [
+    "zfs-destroy"
+   ],
+   "livelist_del": [
+    "zfs-destroy"
+   ],
+   "frees": [
+    "zfs-io-flow"
+   ],
+   "zio_create": [
+    "zfs-io-flow",
+    "zfs-scrub-resilver",
+    "zfs-send-receive",
+    "zfs-fault-management",
+    "zfs-pool-create"
+   ],
+   "st_free": [
+    "zfs-io-flow",
+    "zfs-scrub-resilver"
+   ],
+   "brt": [
+    "zfs-io-flow"
+   ],
+   "metaslab_free": [
+    "zfs-io-flow",
+    "zfs-destroy"
+   ]
+  }
+ }
+}

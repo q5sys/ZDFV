@@ -1,0 +1,15 @@
+{
+  "pages": [
+    { "id": "zfs-io-flow", "title": "ZFS I/O Flow", "spec": "../zfs-io-flow-diagram-spec.md", "file": "zfs-io-flow.html",
+      "summary": "Where a read or write goes and what it touches on the way: the POSIX layer, DMU and dbufs, the intent log, the ARC, transaction groups and txg sync, the zio pipeline, space allocation, the vdev tree and the per-disk queues. Buffered, synchronous, Direct I/O, mmap and zvol paths, plus self-healing and error handling." },
+    { "id": "zfs-scrub-resilver", "title": "ZFS Scrub, Resilver and Rebuild", "spec": "../specs/zfs-scrub-resilver-spec.md", "file": "zfs-scrub-resilver.html" },
+    { "id": "zfs-send-receive", "title": "ZFS Send and Receive", "spec": "../specs/zfs-send-receive-spec.md", "file": "zfs-send-receive.html" },
+    { "id": "zfs-snapshot-lifecycle", "title": "ZFS Snapshots, Destroy and Rollback", "spec": "../specs/zfs-snapshot-lifecycle-spec.md", "file": "zfs-snapshot-lifecycle.html" },
+    { "id": "zfs-fault-management", "title": "ZFS Fault Management", "spec": "../specs/zfs-fault-management-spec.md", "file": "zfs-fault-management.html" },
+    { "id": "zfs-encryption-keys", "title": "ZFS Encryption Keys", "spec": "../specs/zfs-encryption-keys-spec.md", "file": "zfs-encryption-keys.html" },
+    { "id": "zfs-pool-create", "title": "ZFS Pool Creation", "spec": "../specs/zfs-pool-create-spec.md", "file": "zfs-pool-create.html" },
+    { "id": "zfs-dataset-create", "title": "ZFS Dataset Creation", "spec": "../specs/zfs-dataset-create-spec.md", "file": "zfs-dataset-create.html" },
+    { "id": "zfs-pool-import-export", "title": "ZFS Pool Import and Export", "spec": "../specs/zfs-pool-import-export-spec.md", "file": "zfs-pool-import-export.html" },
+    { "id": "zfs-destroy", "title": "ZFS Destroy Actions", "spec": "../specs/zfs-destroy-spec.md", "file": "zfs-destroy.html" }
+  ]
+}

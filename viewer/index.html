@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZFS Flow Diagrams</title>
+<style>
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: #1f1f1f;
+  color: #dddddd;
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", Arial, sans-serif;
+}
+main { max-width: 1100px; margin: 0 auto; padding: 32px 20px 60px; }
+h1 { font-size: 24px; margin: 0 0 4px; }
+.sub { color: #9a9a9a; margin: 0 0 24px; }
+.sub a { color: #74c0fc; text-decoration: none; font-family: ui-monospace, Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 13px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+.card {
+  display: block;
+  background: #262626;
+  border: 1px solid #383838;
+  border-radius: 10px;
+  padding: 16px 18px;
+  color: inherit;
+  text-decoration: none;
+}
+.card:hover { border-color: #ffd43b; background: #2b2b2b; }
+.card h2 { font-size: 17px; margin: 0 0 8px; color: #fff; }
+.card p { margin: 0 0 10px; }
+.card .counts { color: #9a9a9a; font-size: 12px; margin: 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>ZFS Flow Diagrams</h1>
+  <p class="sub">Interactive diagrams of OpenZFS 2.4.99 at commit
+    <a href="https://github.com/openzfs/zfs/tree/c913da86156eba3243cc1ef515e98d69887654a7" target="_blank" rel="noopener">c913da86156eba3243cc1ef515e98d69887654a7</a>.
+    Every box, wire and step links to the source line it describes. Boxes that appear in several diagrams link to each other.</p>
+  <div class="grid">
+<a class="card" href="zfs-io-flow.html"><h2>ZFS I/O Flow</h2><p>Where a read or write goes and what it touches on the way: the POSIX layer, DMU and dbufs, the intent log, the ARC, transaction groups and txg sync, the zio pipeline, space allocation, the vdev tree and the per-disk queues. Buffered, synchronous, Direct I/O, mmap and zvol paths, plus self-healing and error handling.</p><p class="counts">99 nodes, 254 wires, 28 paths</p></a>
+<a class="card" href="zfs-scrub-resilver.html"><h2>ZFS Scrub, Resilver and Rebuild</h2><p>This diagram answers the administrator&#x27;s questions &quot;what does a scrub or resilver actually do, why is it slow or fast, and how does a bad copy get repaired?&quot;. It follows a scan from zpool scrub through the ioctl into syncing context, where dsl_scan_sync() walks the pool&#x27;s metadata once per txg, queues the data reads per top-level vdev, issues them in disk-offset order, and lets the mirror and raidz code repair any copy that fails its checksum. It shows how dirty time logs (DTLs) record what a device missed and limit a resilver to those txgs, how a second resilver is deferred, how a sequential rebuild differs, and what happens at completion.</p><p class="counts">61 nodes, 124 wires, 11 paths</p></a>
+<a class="card" href="zfs-send-receive.html"><h2>ZFS Send and Receive</h2><p>This diagram follows a replication stream from end to end: how zfs send turns a snapshot (or the difference between two points in a dataset&#x27;s history) into a flat stream of records, what those records are, why an incremental stream is small, what -c, -w, -L, -e and -t change, and how zfs receive applies the records to a hidden, inconsistent dataset and then switches it into place in a single transaction group.</p><p class="counts">57 nodes, 125 wires, 11 paths</p></a>
+<a class="card" href="zfs-snapshot-lifecycle.html"><h2>ZFS Snapshots, Destroy and Rollback</h2><p>This diagram shows what happens to a block when a file system that has snapshots stops using it, and what each snapshot operation does with those blocks: why deleting a file frees no space while a snapshot holds it, what destroying a snapshot frees and why the space comes back later, why destroying a large file system is asynchronous, what a rollback throws away, and what a bookmark keeps. It has a node graph (sections 6 to 10) and a timeline view (Appendix E) that plays the same rules as block states over time.</p><p class="counts">36 nodes, 79 wires, 8 paths, 6 timelines</p></a>
+<a class="card" href="zfs-fault-management.html"><h2>ZFS Fault Management</h2><p>This diagram follows a misbehaving disk from the failed or wrong I/O in the zio pipeline to everything ZFS does about it: the per-vdev error counters shown by zpool status, the ereports and other events in the kernel zevent queue, the ZFS event daemon (zed) that reads them and decides whether a disk is faulted or degraded, the hot spare that replaces it, the dirty time log that remembers what a missing disk did not get, the pool suspend that stops I/O when nothing else is possible, and the persistent error log behind &quot;permanent errors&quot; in zpool status -v.</p><p class="counts">54 nodes, 121 wires, 11 paths</p></a>
+<a class="card" href="zfs-encryption-keys.html"><h2>ZFS Encryption Keys</h2><p>This spec describes a diagram of OpenZFS native encryption from the key&#x27;s point of view: which key actually encrypts a block, how a passphrase becomes a wrapping key, how the wrapping key protects each dataset&#x27;s master key in its DSL Crypto Key object, what zfs load-key, zfs unload-key and zfs change-key do in the kernel, why a passphrase change rewrites no data, what an encryption root is, how blocks are encrypted, decrypted and authenticated in the zio pipeline and the ARC, and what a raw send carries.</p><p class="counts">36 nodes, 89 wires, 9 paths</p></a>
+<a class="card" href="zfs-pool-create.html"><h2>ZFS Pool Creation</h2><p>This spec describes a diagram of zpool create: how the command line becomes a vdev specification, which checks can refuse the disks, how Linux whole disks are repartitioned, how the kernel turns the specification into a vdev tree (single disk, file, mirror, raidz, dRAID, special, dedup, log, plus the spare and cache lists that stay outside the tree), how sizes, ashift and metaslabs are decided, what labels are written at once, how the meta-object set (MOS), the root dataset and the feature objects are built for the first txg, and what is on disk once that txg has synced.</p><p class="counts">54 nodes, 95 wires, 9 paths</p></a>
+<a class="card" href="zfs-dataset-create.html"><h2>ZFS Dataset Creation</h2><p>This spec describes a diagram of what zfs create (a file system or a volume) and zfs clone actually do: where a new dataset sits in the pool&#x27;s structure (the MOS, the tree of DSL directories, DSL datasets and their object sets), how libzfs and the kernel validate the properties, which properties are copied at create time and which are only looked up through inheritance, how quota, reservation and refreservation are checked and accounted, which txg writes the new dataset to disk, and what happens afterwards when a file system is mounted or a volume gets its block device.</p><p class="counts">36 nodes, 64 wires, 9 paths</p></a>
+<a class="card" href="zfs-pool-import-export.html"><h2>ZFS Pool Import and Export</h2><p>This spec describes a diagram of how OpenZFS finds, imports and exports a pool: how zpool import discovers pools by reading the labels on candidate devices or the cachefile, how the kernel probes each candidate with a read-only tryimport, how the real import picks the uberblock (the pool state) to load, checks the devices, the host that last used the pool and the feature flags, rewinds to an older txg when asked, claims the intent logs and starts syncing, why an import is refused, what happens when the file systems are mounted afterwards, and what zpool export writes before the pool leaves the system.</p><p class="counts">49 nodes, 104 wires, 15 paths</p></a>
+<a class="card" href="zfs-destroy.html"><h2>ZFS Destroy Actions</h2><p>This diagram follows the destroy commands end to end: what zfs destroy does, and in what order, for a snapshot, a snapshot range, a file system or a volume (with -r, -R, -f, -d, -n and -v), what zpool destroy does to a pool, why each of them refuses (children, clones, holds, busy), and when the space actually comes back. The block-level freeing that a destroy starts (deadlists, the pool free list, the bptree, livelists) is drawn in detail in the snapshot lifecycle graph; this graph hands off to it.</p><p class="counts">36 nodes, 76 wires, 9 paths</p></a>
+  </div>
+</main>
+</body>
+</html>

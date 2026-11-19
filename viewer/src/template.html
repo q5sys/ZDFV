@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+/*{{STYLE}}*/
+</style>
+</head>
+<body>
+<header id="topbar">
+  <button id="toggle-left" class="icon" title="Show or hide the path panel">&#9776;</button>
+  <h1>{{TITLE}}</h1>
+  <a id="commit-link" target="_blank" rel="noopener"></a>
+  <span id="suite-nav" hidden>
+    <select id="graph-menu" title="Open another diagram of the suite"></select>
+    <a id="index-link" href="index.html" title="All diagrams">All</a>
+  </span>
+  <span id="view-switch" class="segmented" hidden>
+    <button id="btn-view-graph" class="active" title="Node graph">Graph</button><button id="btn-view-timeline" title="Timeline scenarios">Timeline</button>
+  </span>
+  <span class="spacer"></span>
+  <button id="btn-fit" title="Fit everything (F)">Fit</button>
+  <button id="btn-reset" title="Restore the default layout">Reset layout</button>
+  <button id="btn-export" title="Export layout: save node positions to a JSON file">Export</button>
+  <label class="button" title="Import layout: load node positions from a JSON file">Import<input id="file-import" type="file" accept="application/json,.json" hidden></label>
+  <button id="btn-about">About</button>
+  <button id="toggle-right" class="icon" title="Show or hide the details panel">&#9776;</button>
+</header>
+
+<main id="layout">
+  <aside id="left">
+    <div class="panel-section">
+      <input id="search" type="search" placeholder="Search nodes, functions, files, tunables, wires  ( / )" autocomplete="off">
+      <ul id="search-results" class="results"></ul>
+    </div>
+    <div class="panel-section">
+      <h2>Paths</h2>
+      <div id="path-list"></div>
+    </div>
+    <div class="panel-section" id="timeline-section" hidden>
+      <h2>Timelines</h2>
+      <div id="timeline-list"></div>
+    </div>
+    <div class="panel-section">
+      <h2>Filters</h2>
+      <label class="row">Context
+        <select id="ctx-filter"><option value="">(none)</option></select>
+      </label>
+      <div id="group-filters"></div>
+    </div>
+  </aside>
+
+  <section id="canvas-wrap">
+    <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
+          <circle cx="12" cy="12" r="1.3" fill="#2c2c2c"></circle>
+        </pattern>
+        <filter id="shadow" x="-10%" y="-10%" width="130%" height="140%">
+          <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000" flood-opacity="0.45"></feDropShadow>
+        </filter>
+        <filter id="glow" x="-20%" y="-20%" width="140%" height="160%">
+          <feDropShadow dx="0" dy="0" stdDeviation="7" flood-color="#ffd43b" flood-opacity="0.9"></feDropShadow>
+        </filter>
+      </defs>
+      <rect id="grid-rect" x="0" y="0" width="100%" height="100%" fill="url(#grid)"></rect>
+      <g id="root">
+        <g id="layer-groups"></g>
+        <g id="layer-wires"></g>
+        <g id="layer-hits"></g>
+        <g id="layer-nodes"></g>
+        <g id="layer-badges"></g>
+        <g id="layer-dot"></g>
+      </g>
+    </svg>
+    <div id="caption" hidden></div>
+    <div id="legend"></div>
+    <canvas id="minimap" width="220" height="150"></canvas>
+    <div id="timeline-view" hidden>
+      <div id="tl-head">
+        <div id="tl-title"></div>
+        <div class="transport" id="tl-transport">
+          <button id="tl-first" title="First step (Home)">|◀</button>
+          <button id="tl-prev" title="Previous step (Left)">◀</button>
+          <button id="tl-play" title="Play or pause (Space)">Play</button>
+          <button id="tl-next" title="Next step (Right)">▶</button>
+          <button id="tl-last" title="Last step (End)">▶|</button>
+        </div>
+      </div>
+      <div id="tl-strip"></div>
+      <div id="tl-caption"></div>
+      <div id="tl-panel"></div>
+      <div id="tl-legend"></div>
+    </div>
+  </section>
+
+  <aside id="right">
+    <div id="details"><p class="muted">Select a node, a wire or a path.</p></div>
+  </aside>
+</main>
+
+<div id="tooltip" hidden></div>
+<div id="about" hidden>
+  <div class="about-box">
+    <button id="about-close" class="icon close" title="Close">&#10005;</button>
+    <div id="about-body"></div>
+  </div>
+</div>
+
+<script type="application/json" id="graph-data">{{GRAPH}}</script>
+<script>
+/*{{SCRIPT}}*/
+</script>
+</body>
+</html>
